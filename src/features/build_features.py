@@ -23,18 +23,17 @@ NO_PODIUM = 0
 def build_targets(race_df: pd.DataFrame) -> pd.DataFrame:
     """Asigna la clase multiclase: 0=no podium, 1=P1, 2=P2, 3=P3."""
     race_df = race_df.copy()
-    # La columna de posición final puede variar según FastF1 version
     pos_col = "Position" if "Position" in race_df.columns else "ClassifiedPosition"
-    race_df["FinalPosition"] = pd.to_numeric(race_df[pos_col], errors="coerce").astype("Int64")
-    race_df["Target"] = race_df["FinalPosition"].map(TARGET_MAP).fillna(NO_PODIUM).astype(int)
+    race_df["final_position"] = pd.to_numeric(race_df[pos_col], errors="coerce").astype("Int64")
+    race_df["target"] = race_df["final_position"].map(TARGET_MAP).fillna(NO_PODIUM).astype(int)
     return race_df
 
 
 def compute_recent_form(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Media de posiciones finales en las últimas n carreras por piloto."""
     df = df.sort_values(["Year", "RoundNumber"])
-    df["RecentFormAvg"] = (
-        df.groupby("DriverNumber")["FinalPosition"]
+    df["recent_form_avg"] = (
+        df.groupby("DriverNumber")["final_position"]
         .shift(1)
         .rolling(window=n, min_periods=1)
         .mean()
@@ -46,8 +45,8 @@ def compute_recent_form(df: pd.DataFrame, n: int) -> pd.DataFrame:
 def compute_team_pace(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Media de posiciones finales de la escudería en las últimas n carreras."""
     df = df.sort_values(["Year", "RoundNumber"])
-    df["TeamPaceAvg"] = (
-        df.groupby("TeamName")["FinalPosition"]
+    df["team_pace_avg"] = (
+        df.groupby("TeamName")["final_position"]
         .shift(1)
         .rolling(window=n, min_periods=1)
         .mean()
@@ -59,8 +58,8 @@ def compute_team_pace(df: pd.DataFrame, n: int) -> pd.DataFrame:
 def compute_track_history(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Media de posiciones finales del piloto en ese circuito en las últimas n apariciones."""
     df = df.sort_values(["Year", "RoundNumber"])
-    df["TrackHistoryAvg"] = (
-        df.groupby(["DriverNumber", "EventName"])["FinalPosition"]
+    df["track_history_avg"] = (
+        df.groupby(["DriverNumber", "EventName"])["final_position"]
         .shift(1)
         .rolling(window=n, min_periods=1)
         .mean()
@@ -72,13 +71,23 @@ def compute_track_history(df: pd.DataFrame, n: int) -> pd.DataFrame:
 def compute_championship_position(df: pd.DataFrame) -> pd.DataFrame:
     """Posición acumulada en el campeonato antes de la carrera."""
     df = df.sort_values(["Year", "RoundNumber"])
-    # Puntos por carrera
+    # Puntos por carrera (sistema 2010-actualidad)
     points_map = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
-    df["PointsRace"] = df["FinalPosition"].map(points_map).fillna(0)
-    df["CumPoints"] = df.groupby(["Year", "DriverNumber"])["PointsRace"].shift(1).cumsum().fillna(0)
-    # Ranking dentro de la temporada hasta la carrera anterior
-    df["ChampionshipPosition"] = (
-        df.groupby(["Year", "RoundNumber"])["CumPoints"]
+    df["points_race"] = df["final_position"].map(points_map).fillna(0)
+    
+    # Ordenar para acumular correctamente
+    df = df.sort_values(["Year", "RoundNumber", "DriverNumber"])
+    df["cum_points"] = (
+        df.groupby(["Year", "DriverNumber"])["points_race"]
+        .shift(1)
+        .fillna(0)
+        .groupby([df["Year"], df["DriverNumber"]])
+        .cumsum()
+    )
+    
+    # Calcular ranking por temporada y ronda usando groupby().rank() directamente
+    df["championship_position"] = (
+        df.groupby(["Year", "RoundNumber"])["cum_points"]
         .rank(method="min", ascending=False)
         .fillna(20)
         .astype(int)
@@ -89,37 +98,74 @@ def compute_championship_position(df: pd.DataFrame) -> pd.DataFrame:
 def compute_races_experience(df: pd.DataFrame) -> pd.DataFrame:
     """Número acumulado de carreras disputadas por piloto."""
     df = df.sort_values(["Year", "RoundNumber"])
-    df["RacesExperience"] = df.groupby("DriverNumber").cumcount()
+    df["races_experience"] = df.groupby("DriverNumber").cumcount()
     return df
 
 
 def compute_teammate_gap(df: pd.DataFrame) -> pd.DataFrame:
     """Diferencia de posición respecto al compañero de equipo en la carrera anterior."""
     df = df.sort_values(["Year", "RoundNumber"])
-    shifted = df.groupby(["Year", "TeamName", "RoundNumber"])["FinalPosition"].shift(1)
-    # Simplificación: diferencia absoluta con la media del equipo en la carrera previa
+    # Media del equipo en la carrera anterior (por TeamName)
     team_avg = (
-        df.groupby(["Year", "TeamName", "RoundNumber"])["FinalPosition"]
+        df.groupby(["Year", "TeamName"])["final_position"]
         .shift(1)
+        .groupby([df["Year"], df["TeamName"]])
         .transform("mean")
     )
-    df["TeammateGap"] = df["FinalPosition"] - team_avg
+    df["teammate_gap"] = df.groupby(["Year", "TeamName"])["final_position"].shift(1) - team_avg
     return df
 
 
 def extract_grid_position(quali_df: pd.DataFrame) -> pd.DataFrame:
     """Extrae la posición de salida desde los resultados de clasificación."""
+    if quali_df.empty:
+        return pd.DataFrame(columns=["Year", "RoundNumber", "DriverNumber", "grid_position"])
     quali = quali_df.copy()
     grid_col = "Position" if "Position" in quali.columns else "GridPosition"
-    quali["GridPosition"] = pd.to_numeric(quali[grid_col], errors="coerce").astype("Int64")
-    return quali[["Year", "RoundNumber", "DriverNumber", "GridPosition"]]
+    quali["grid_position"] = pd.to_numeric(quali[grid_col], errors="coerce").astype("Int64")
+    return quali[["Year", "RoundNumber", "DriverNumber", "grid_position"]]
 
 
 def merge_race_and_quali(race_df: pd.DataFrame, quali_df: pd.DataFrame) -> pd.DataFrame:
-    """Une resultados de carrera con posición de salida."""
+    """Une resultados de carrera con posición de salida desde quali si es necesario."""
+    if quali_df.empty:
+        logger.warning("No hay datos de clasificación.")
+        if "grid_position" not in race_df.columns:
+            if "GridPosition" in race_df.columns:
+                race_df = race_df.rename(columns={"GridPosition": "grid_position"})
+            else:
+                race_df["grid_position"] = pd.NA
+        else:
+            race_df = race_df.rename(columns={"GridPosition": "grid_position"})
+        return race_df
+    
     grid = extract_grid_position(quali_df)
+    if grid.empty:
+        if "grid_position" not in race_df.columns:
+            if "GridPosition" in race_df.columns:
+                race_df = race_df.rename(columns={"GridPosition": "grid_position"})
+            else:
+                race_df["grid_position"] = pd.NA
+        return race_df
+    
+    # Si race_df ya tiene GridPosition, renombrarla antes del merge para evitar duplicados
+    if "GridPosition" in race_df.columns and "grid_position" not in race_df.columns:
+        race_df = race_df.rename(columns={"GridPosition": "grid_position_race"})
+    
     merged = race_df.merge(grid, on=["Year", "RoundNumber", "DriverNumber"], how="left")
+    
+    # Si no hay grid_position del merge pero sí del race, usar la del race
+    if "grid_position_race" in merged.columns:
+        merged["grid_position"] = merged["grid_position"].fillna(merged["grid_position_race"])
+        merged = merged.drop(columns=["grid_position_race"])
+    
     return merged
+
+
+def add_race_round(df: pd.DataFrame) -> pd.DataFrame:
+    """Número de carrera en la temporada (normalizado 0-1)."""
+    df["race_round"] = df["RoundNumber"] / df.groupby("Year")["RoundNumber"].transform("max")
+    return df
 
 
 def build_features_for_year(year: int) -> pd.DataFrame:
@@ -144,10 +190,11 @@ def build_features_for_year(year: int) -> pd.DataFrame:
     race = compute_championship_position(race)
     race = compute_races_experience(race)
     race = compute_teammate_gap(race)
+    race = add_race_round(race)
 
     # Selección de columnas de interés
     feature_cols = config.get("features.columns", [])
-    base_cols = ["Year", "RoundNumber", "EventName", "DriverNumber", "Abbreviation", "TeamName", "Target"]
+    base_cols = ["Year", "RoundNumber", "EventName", "DriverNumber", "Abbreviation", "TeamName", "target"]
     keep_cols = base_cols + feature_cols
     available_cols = [c for c in keep_cols if c in race.columns]
     return race[available_cols].copy()

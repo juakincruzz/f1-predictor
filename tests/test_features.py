@@ -12,5 +12,5 @@ def test_build_targets():
         "DriverNumber": ["44", "1", "16", "11", "33"],
     })
     result = build_targets(df)
-    assert "Target" in result.columns
-    assert result["Target"].tolist() == [1, 2, 3, 0, 0]
+    assert "target" in result.columns
+    assert result["target"].tolist() == [1, 2, 3, 0, 0]

@@ -33,16 +33,28 @@ f1-predictor/
 └── config.yaml         # Hiperparámetros y rutas
 ```
 
-## Instalación
+## Instalación y Setup
+
+Requiere Python 3.11+.
 
 ```bash
-make install
+# 1. Clonar el repo
+git clone https://github.com/juakincruzz/f1-predictor.git
+cd f1-predictor
+
+# 2. Crear entorno virtual
+python3 -m venv venv
+source venv/bin/activate  # Linux/Mac
+# o: venv\Scripts\activate  # Windows
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
 ```
 
 ## Uso
 
 ```bash
-# Descargar datos (incremental)
+# Descargar datos (incremental) — puede tardar la primera vez
 make data
 
 # Generar features
@@ -58,21 +70,59 @@ make evaluate
 make dashboard
 ```
 
+> **Nota**: `make data` descarga todas las temporadas configuradas en `config.yaml` (2010–2026). La primera ejecución puede tardar varios minutos. Las siguientes serán incrementales.
+
 ## Features principales
 
 - `grid_position`: Posición de salida
-- `recent_form_avg`: Media últimas 5 carreras
-- `team_pace_avg`: Ritmo de la escudería
-- `track_history_avg`: Historial en el circuito
-- `championship_position`: Posición en el mundial
-- `races_experience`: Carreras acumuladas
-- `teammate_gap`: Diferencia con el compañero
+- `recent_form_avg`: Media últimas 5 carreras por piloto
+- `team_pace_avg`: Ritmo medio de la escudería reciente
+- `track_history_avg`: Historial del piloto en el circuito
+- `championship_position`: Posición acumulada en el mundial
+- `races_experience`: Carreras acumuladas en F1
+- `teammate_gap`: Diferencia con el compañero de equipo
+- `race_round`: Número de carrera en la temporada (normalizado)
 
 ## Git Workflow
 
-- `main`: Rama estable
+- `main`: Rama estable (producción)
 - `dev`: Desarrollo e integración
 - `feature/*`: Nuevas funcionalidades (PR a `dev`)
+
+```bash
+git checkout dev
+git checkout -b feature/nueva-funcionalidad
+# ... trabajas ...
+git push -u origin feature/nueva-funcionalidad
+# Abres PR en GitHub: feature/* → dev
+g# Cuando dev está estable: PR dev → main
+```
+
+## Testeo
+
+```bash
+# Tests unitarios
+make test
+
+# Lint + format check
+make lint
+
+# Fix lint automáticamente
+make lint-fix
+
+# Clean
+make clean
+```
+
+## Estado del MVP
+
+- ✅ Recolección incremental con FastF1 (2010–2026)
+- ✅ Feature engineering completo
+- ✅ XGBoost multiclase entrenable
+- ✅ Validación temporal walk-forward
+- ✅ Dashboard Streamlit funcional
+- ✅ CI/CD con GitHub Actions
+- ✅ Tests base con pytest
 
 ## Licencia
 

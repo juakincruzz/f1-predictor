@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src.features.build_features import build_features_for_year
 from src.models.predict import predict_for_race
 from src.utils.config import config
+from src.utils.paths import get_models_path
 
 st.set_page_config(page_title="F1 Podium Predictor", layout="wide")
 
@@ -29,6 +30,12 @@ selected_round = st.sidebar.selectbox("Ronda", rounds, index=0)
 
 mode = st.sidebar.radio("Modo", ["Pre-carrera", "Datos en vivo"])
 
+# Verificar si existe un modelo entrenado
+model_path = get_models_path("xgb_model.json")
+model_exists = model_path.exists()
+if not model_exists:
+    st.sidebar.warning("⚠️ No hay modelo entrenado. Ejecuta `make train` primero.")
+
 # Pestañas
 tab_pred, tab_hist, tab_feat, tab_live = st.tabs(
     ["🔮 Predicción", "📊 Histórico", "🧠 Features", "📡 En Vivo"]
@@ -36,26 +43,29 @@ tab_pred, tab_hist, tab_feat, tab_live = st.tabs(
 
 with tab_pred:
     st.subheader(f"Predicción: {selected_year} - Ronda {selected_round}")
-    df_year = build_features_for_year(selected_year)
-    if df_year.empty:
-        st.warning("No hay datos procesados para esta temporada. Ejecuta 'make data' y 'make features'.")
+    if not model_exists:
+        st.error("No se encontró modelo entrenado. Ejecuta `make train` para generar `models/xgb_model.json`.")
     else:
-        preds = predict_for_race(df_year, selected_year, selected_round)
-        if preds.empty:
-            st.warning("No se encontraron datos de esta carrera.")
+        df_year = build_features_for_year(selected_year)
+        if df_year.empty:
+            st.warning("No hay datos procesados para esta temporada. Ejecuta 'make data' y 'make features'.")
         else:
-            cols_display = [
-                "Abbreviation", "TeamName", "GridPosition", "PredictedLabel",
-                "Prob_P1", "Prob_P2", "Prob_P3", "PodiumProbability"
-            ]
-            cols_available = [c for c in cols_display if c in preds.columns]
-            st.dataframe(preds[cols_available].head(20), use_container_width=True)
+            preds = predict_for_race(df_year, selected_year, selected_round, model_path=str(model_path))
+            if preds.empty:
+                st.warning("No se encontraron datos de esta carrera.")
+            else:
+                cols_display = [
+                    "Abbreviation", "TeamName", "grid_position", "PredictedLabel",
+                    "Prob_P1", "Prob_P2", "Prob_P3", "PodiumProbability"
+                ]
+                cols_available = [c for c in cols_display if c in preds.columns]
+                st.dataframe(preds[cols_available].head(20), use_container_width=True)
 
-            # Top 3 más probable
-            st.markdown("### 🏆 Top 3 Probabilidades de Podio")
-            top3 = preds.head(3)
-            for i, row in top3.iterrows():
-                st.write(f"**{row['Abbreviation']}** ({row['TeamName']}) — {row['PredictedLabel']} — Podio: {row['PodiumProbability']:.1%}")
+                # Top 3 más probable
+                st.markdown("### 🏆 Top 3 Probabilidades de Podio")
+                top3 = preds.head(3)
+                for i, row in top3.iterrows():
+                    st.write(f"**{row['Abbreviation']}** ({row['TeamName']}) — {row['PredictedLabel']} — Podio: {row['PodiumProbability']:.1%}")
 
 with tab_hist:
     st.subheader("Validación Histórica")
