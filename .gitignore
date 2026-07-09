@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datos y modelos pesados
+data/raw/
+data/processed/
+data/cache/
+models/*.json
+models/*.ubj
+models/*.pkl
+reports/*.png
+reports/*.csv
