@@ -33,13 +33,13 @@ def predict(df: pd.DataFrame, model_path: str = "xgb_model.json") -> pd.DataFram
     return result
 
 
-def predict_for_race(df: pd.DataFrame, year: int, round_num: int) -> pd.DataFrame:
+def predict_for_race(df: pd.DataFrame, year: int, round_num: int, model_path: str = "xgb_model.json") -> pd.DataFrame:
     """Filtra una carrera específica y devuelve predicciones ordenadas por probabilidad de podium."""
     race = df[(df["Year"] == year) & (df["RoundNumber"] == round_num)].copy()
     if race.empty:
         logger.warning(f"No se encontraron datos para {year} R{round_num}")
         return pd.DataFrame()
-    predicted = predict(race)
+    predicted = predict(race, model_path=model_path)
     # Ordenar por probabilidad de estar en el podio (P1+P2+P3)
     podium_prob = predicted[["Prob_P1", "Prob_P2", "Prob_P3"]].sum(axis=1)
     predicted["PodiumProbability"] = podium_prob

@@ -28,7 +28,7 @@ def session_exists(year: int, round_num: int, session_type: str) -> bool:
     return filepath.exists()
 
 
-def fetch_session(year: int, round_num: int, session_type: str) -> pd.DataFrame | None:
+def fetch_session(year: int, round_num: int, session_type: str, event_name: str = "") -> pd.DataFrame | None:
     """Descarga una sesión de FastF1 y la devuelve como DataFrame.
 
     session_type puede ser: 'R' (Race), 'Q' (Qualifying), 'FP1', 'FP2', 'FP3', 'S' (Sprint)
@@ -37,13 +37,7 @@ def fetch_session(year: int, round_num: int, session_type: str) -> pd.DataFrame 
         session = fastf1.get_session(year, round_num, session_type)
         session.load()
 
-        if session_type in ("R", "S"):
-            df = session.results
-        elif session_type == "Q":
-            df = session.results
-        else:
-            # Para prácticas usamos los resultados si están disponibles
-            df = session.results
+        df = session.results
 
         if df is None or df.empty:
             logger.warning(f"Sin datos para {year} R{round_num} {session_type}")
@@ -54,6 +48,7 @@ def fetch_session(year: int, round_num: int, session_type: str) -> pd.DataFrame 
         df["Year"] = year
         df["RoundNumber"] = round_num
         df["SessionType"] = session_type
+        df["EventName"] = event_name
         return df
 
     except Exception as e:
@@ -70,17 +65,20 @@ def save_raw(df: pd.DataFrame, year: int, round_num: int, session_type: str) -> 
 
 
 def collect_year(year: int, force: bool = False) -> None:
-    """Descarga todas las carreras y clasificaciones de una temporada."""
+    """Descarga todas las carreras y clasificaciones de una temporada (salta testing)."""
     logger.info(f"Procesando temporada {year}...")
     schedule = fastf1.get_event_schedule(year)
-    total_rounds = len(schedule)
+    # Filtrar eventos de testing y similares
+    valid_events = schedule[~schedule["EventName"].str.contains("Testing|Test", case=False, na=False)]
+    total_events = len(valid_events)
 
-    for _, event in schedule.iterrows():
+    for _, event in valid_events.iterrows():
         round_num = event["RoundNumber"]
+        event_name = event["EventName"]
 
         # Race (R)
         if not session_exists(year, round_num, "R") or force:
-            df_race = fetch_session(year, round_num, "R")
+            df_race = fetch_session(year, round_num, "R", event_name)
             if df_race is not None:
                 save_raw(df_race, year, round_num, "R")
         else:
@@ -88,13 +86,13 @@ def collect_year(year: int, force: bool = False) -> None:
 
         # Qualifying (Q)
         if not session_exists(year, round_num, "Q") or force:
-            df_quali = fetch_session(year, round_num, "Q")
+            df_quali = fetch_session(year, round_num, "Q", event_name)
             if df_quali is not None:
                 save_raw(df_quali, year, round_num, "Q")
         else:
             logger.info(f"{year} R{round_num:02d} Q ya existe, saltando.")
 
-    logger.info(f"Temporada {year} completada. {total_rounds} eventos revisados.")
+    logger.info(f"Temporada {year} completada. {total_events} eventos procesados.")
 
 
 def collect_range(start_year: int | None = None, end_year: int | None = None, force: bool = False) -> None:
