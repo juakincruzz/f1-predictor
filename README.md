@@ -72,6 +72,13 @@ make dashboard
 
 > **Nota**: `make data` descarga todas las temporadas configuradas en `config.yaml` (2010–2026). La primera ejecución puede tardar varios minutos. Las siguientes serán incrementales.
 
+Para descargas largas en background (sobreviven a desconexiones):
+
+```bash
+nohup python3 scripts/download_years.py > data/download.log 2>&1 &
+tail -f data/download.log   # seguir el progreso
+```
+
 ## Features principales
 
 - `grid_position`: Posición de salida

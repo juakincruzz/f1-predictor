@@ -52,7 +52,9 @@ def _download_with_retry(
     for attempt in range(max_retries + 1):
         try:
             session = fastf1.get_session(year, round_num, session_type)
-            session.load()
+            # Solo se usan los resultados: no descargar vueltas, telemetría,
+            # meteo ni mensajes (mucho más rápido y menos rate limit)
+            session.load(laps=False, telemetry=False, weather=False, messages=False)
             df = session.results
 
             if df is None or df.empty:
@@ -68,7 +70,7 @@ def _download_with_retry(
 
         except RateLimitExceededError as e:
             last_exception = e
-            wait = base_delay * (2 ** attempt)  # 60, 120, 240...
+            wait = base_delay * (2**attempt)  # 60, 120, 240...
             logger.warning(
                 f"Rate limit excedido en {year} R{round_num} {session_type}. "
                 f"Esperando {wait}s antes de reintento {attempt + 1}/{max_retries}..."
@@ -115,17 +117,19 @@ def collect_year(
     session_delay: int = DEFAULT_SESSION_DELAY,
 ) -> dict:
     """Descarga todas las carreras y clasificaciones de una temporada (salta testing).
-    
+
     Returns:
         dict con 'processed', 'skipped', 'failed', 'total'.
     """
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"Procesando temporada {year}...")
-    logger.info(f"=" * 60)
-    
+    logger.info("=" * 60)
+
     schedule = fastf1.get_event_schedule(year)
     # Filtrar eventos de testing y similares
-    valid_events = schedule[~schedule["EventName"].str.contains("Testing|Test", case=False, na=False)]
+    valid_events = schedule[
+        ~schedule["EventName"].str.contains("Testing|Test", case=False, na=False)
+    ]
     total_events = len(valid_events)
 
     stats = {"processed": 0, "skipped": 0, "failed": 0, "total": total_events * 2}
@@ -133,12 +137,14 @@ def collect_year(
     for idx, (_, event) in enumerate(valid_events.iterrows(), 1):
         round_num = event["RoundNumber"]
         event_name = event["EventName"]
-        
+
         logger.info(f"[{idx}/{total_events}] {event_name} — R{round_num:02d}")
 
         # Race (R)
         if not session_exists(year, round_num, "R") or force:
-            df_race = fetch_session(year, round_num, "R", event_name, delay=session_delay)
+            df_race = fetch_session(
+                year, round_num, "R", event_name, delay=session_delay
+            )
             if df_race is not None:
                 save_raw(df_race, year, round_num, "R")
                 stats["processed"] += 1
@@ -150,7 +156,9 @@ def collect_year(
 
         # Qualifying (Q)
         if not session_exists(year, round_num, "Q") or force:
-            df_quali = fetch_session(year, round_num, "Q", event_name, delay=session_delay)
+            df_quali = fetch_session(
+                year, round_num, "Q", event_name, delay=session_delay
+            )
             if df_quali is not None:
                 save_raw(df_quali, year, round_num, "Q")
                 stats["processed"] += 1
@@ -160,10 +168,12 @@ def collect_year(
             logger.info(f"  {year} R{round_num:02d} Q ya existe, saltando.")
             stats["skipped"] += 1
 
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"Temporada {year} completada.")
-    logger.info(f"  Procesados: {stats['processed']} | Saltados: {stats['skipped']} | Fallados: {stats['failed']}")
-    logger.info(f"=" * 60)
+    logger.info(
+        f"  Procesados: {stats['processed']} | Saltados: {stats['skipped']} | Fallados: {stats['failed']}"
+    )
+    logger.info("=" * 60)
     return stats
 
 
@@ -184,13 +194,13 @@ def collect_range(
         for key in grand_total:
             grand_total[key] += stats.get(key, 0)
 
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"DESCARGA COMPLETA {start}-{end}")
     logger.info(f"  Procesados: {grand_total['processed']}")
     logger.info(f"  Saltados:   {grand_total['skipped']}")
     logger.info(f"  Fallados:   {grand_total['failed']}")
     logger.info(f"  Total:      {grand_total['total']}")
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
 
 
 def load_raw_sessions(year: int, session_type: str = "R") -> pd.DataFrame:

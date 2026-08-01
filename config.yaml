@@ -24,7 +24,6 @@ features:
     - races_experience
     - teammate_gap
     - race_round
-    - circuit_type
 
 model:
   name: "xgboost_multiclass"

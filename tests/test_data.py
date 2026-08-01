@@ -1,10 +1,5 @@
 """Tests básicos para el módulo de datos."""
 
-from pathlib import Path
-
-import pandas as pd
-import pytest
-
 from src.data.collect import get_raw_path
 from src.utils.config import Config
 

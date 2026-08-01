@@ -9,9 +9,10 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.models.train import load_model, prepare_xy
-from src.utils.config import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 CLASS_LABELS = {0: "No Podium", 1: "P1", 2: "P2", 3: "P3"}
@@ -33,7 +34,9 @@ def predict(df: pd.DataFrame, model_path: str = "xgb_model.json") -> pd.DataFram
     return result
 
 
-def predict_for_race(df: pd.DataFrame, year: int, round_num: int, model_path: str = "xgb_model.json") -> pd.DataFrame:
+def predict_for_race(
+    df: pd.DataFrame, year: int, round_num: int, model_path: str = "xgb_model.json"
+) -> pd.DataFrame:
     """Filtra una carrera específica y devuelve predicciones ordenadas por probabilidad de podium."""
     race = df[(df["Year"] == year) & (df["RoundNumber"] == round_num)].copy()
     if race.empty:
@@ -52,4 +55,8 @@ if __name__ == "__main__":
 
     df = build_all_features()
     preds = predict_for_race(df, 2023, 1)
-    print(preds[["Abbreviation", "TeamName", "PredictedLabel", "PodiumProbability"]].head(10))
+    print(
+        preds[["Abbreviation", "TeamName", "PredictedLabel", "PodiumProbability"]].head(
+            10
+        )
+    )

@@ -1,6 +1,5 @@
 """Módulo de configuración centralizada del proyecto."""
 
-import os
 from pathlib import Path
 
 import yaml
