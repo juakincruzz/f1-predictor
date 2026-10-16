@@ -43,7 +43,7 @@ model:
 validation:
   strategy: "walk_forward"
   train_until: 2021
-  val_year: 2022
+  val_year: 2025
   test_years:
     - 2023
     - 2024
