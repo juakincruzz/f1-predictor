@@ -224,6 +224,7 @@ def collect_year_jolpica(year: int, force: bool = False) -> dict:
             for round_num, group in df.groupby("RoundNumber"):
                 if round_num in missing:
                     path = year_dir / f"R{round_num:02d}_{session_type}.parquet"
+                    group = group.assign(TotalRounds=len(schedule))
                     group.reset_index(drop=True).to_parquet(path, index=False)
                     written.add(round_num)
         stats["processed"] += len(written)

@@ -3,6 +3,7 @@
 import pandas as pd
 
 from src.features.build_features import (
+    add_race_round,
     build_features_from_frames,
     build_targets,
     compute_races_experience,
@@ -153,3 +154,17 @@ def test_driver_key_falls_back_to_number():
     df = pd.DataFrame({"DriverNumber": ["44", "1"], "DriverId": ["hamilton", None]})
     assert driver_key(df).tolist() == ["hamilton", "1"]
     assert driver_key(df[["DriverNumber"]]).tolist() == ["44", "1"]
+
+
+def test_race_round_uses_season_length_when_known():
+    """En una temporada en curso, la ronda se normaliza con el calendario
+    completo, no con la última ronda disputada."""
+    df = pd.DataFrame(
+        {
+            "Year": [2025, 2026, 2026, 2026],
+            "RoundNumber": [24, 17, 18, 18],
+            "TotalRounds": [None, 23, 23, None],
+        }
+    )
+    result = add_race_round(df)["race_round"].tolist()
+    assert result == [1.0, 17 / 23, 18 / 23, 18 / 23]

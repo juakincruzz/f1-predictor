@@ -168,10 +168,17 @@ def merge_race_and_quali(race_df: pd.DataFrame, quali_df: pd.DataFrame) -> pd.Da
 
 
 def add_race_round(df: pd.DataFrame) -> pd.DataFrame:
-    """Número de carrera en la temporada (normalizado 0-1)."""
-    df["race_round"] = df["RoundNumber"] / df.groupby("Year")["RoundNumber"].transform(
-        "max"
-    )
+    """Número de carrera en la temporada (normalizado 0-1).
+
+    Si se conoce la longitud del calendario (columna TotalRounds, que escribe
+    el colector Jolpica) se usa esa; si no, la última ronda con datos. Así una
+    temporada en curso no parece terminar en la última carrera disputada.
+    """
+    total = df.groupby("Year")["RoundNumber"].transform("max")
+    if "TotalRounds" in df.columns:
+        known = pd.to_numeric(df["TotalRounds"], errors="coerce")
+        total = known.groupby(df["Year"]).transform("max").fillna(total)
+    df["race_round"] = df["RoundNumber"] / total
     return df
 
 

@@ -76,6 +76,7 @@ def test_entries_use_real_qualifying_when_available():
     assert grid == {"norris": 1.0, "verstappen": 2.0}
     assert entries["Position"].isna().all()
     assert set(entries["RoundNumber"]) == {3}
+    assert set(entries["TotalRounds"]) == {4}
 
 
 def test_entries_estimate_grid_and_put_rookie_last():

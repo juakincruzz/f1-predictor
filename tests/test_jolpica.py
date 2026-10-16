@@ -116,6 +116,7 @@ def test_collect_year_jolpica_writes_and_is_incremental(monkeypatch, tmp_path):
     assert (tmp_path / "R01_Q.parquet").exists()
     assert not (tmp_path / "R02_R.parquet").exists()
     assert stats == {"processed": 2, "skipped": 0, "pending": 2, "total": 4}
+    assert pd.read_parquet(tmp_path / "R01_R.parquet")["TotalRounds"].tolist() == [2]
 
     stats = jolpica.collect_year_jolpica(2026)
     assert stats == {"processed": 0, "skipped": 2, "pending": 2, "total": 4}
