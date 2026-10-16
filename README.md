@@ -4,13 +4,13 @@ Predicción de podios en Fórmula 1 usando XGBoost multiclase con validación te
 
 ## Objetivo
 
-Entrenar un clasificador de gradient boosting para predecir quién acabará en el podio (P1, P2, P3) usando décadas de datos históricos de F1, feature engineering avanzado y validación walk-forward por temporadas.
+Entrenar un clasificador de gradient boosting para predecir quién acabará en el podio (P1, P2, P3) usando décadas de datos históricos de F1, feature engineering avanzado y validación walk-forward por temporadas, y predecir el podio de **la próxima carrera** del calendario.
 
 ## Stack
 
-- **Datos**: [FastF1](https://docs.fastf1.dev/) + Ergast API (2010–hoy)
-- **Modelo**: XGBoost (`multi:softprob`)
-- **Dashboard**: Streamlit
+- **Datos**: [Jolpica](https://github.com/jolpica/jolpica-f1) (sucesora de Ergast, por defecto) y [FastF1](https://docs.fastf1.dev/) como alternativa (2010–hoy)
+- **Modelo**: XGBoost (`multi:softprob`) con SHAP nativo para explicar cada carrera
+- **Dashboard**: Streamlit + Altair, estética F1 clásica (rojo Fórmula y plata)
 - **Pipeline**: Makefile + scripts Python
 - **CI/CD**: GitHub Actions (ruff, black, pytest)
 
@@ -21,10 +21,10 @@ f1-predictor/
 ├── data/               # Datos crudos y procesados (incremental)
 ├── notebooks/          # Exploración, features, modelo, evaluación
 ├── src/
-│   ├── data/           # Recolección con FastF1
+│   ├── data/           # Recolección (Jolpica / FastF1)
 │   ├── features/       # Feature engineering
-│   ├── models/         # Train, predict, evaluate
-│   ├── dashboard/      # App Streamlit
+│   ├── models/         # Train, predict, evaluate, upcoming, explain
+│   ├── dashboard/      # App Streamlit (app, theme, components)
 │   └── utils/          # Config y rutas
 ├── tests/              # pytest
 ├── models/             # Artefactos entrenados
@@ -54,8 +54,11 @@ pip install -r requirements.txt
 ## Uso
 
 ```bash
-# Descargar datos (incremental) — puede tardar la primera vez
+# Descargar datos (incremental, vía Jolpica)
 make data
+
+# Actualizar solo la temporada en curso (p. ej. tras cada GP o qualy)
+make update
 
 # Generar features
 make features
@@ -70,14 +73,32 @@ make evaluate
 make dashboard
 ```
 
-> **Nota**: `make data` descarga todas las temporadas configuradas en `config.yaml` (2010–2026). La primera ejecución puede tardar varios minutos. Las siguientes serán incrementales.
+> **Nota**: `make data` descarga todas las temporadas de `config.yaml` (2010–2026) desde Jolpica: unas pocas llamadas por temporada, así que tarda minutos y no horas. Es incremental: solo baja las rondas que faltan.
 
-Para descargas largas en background (sobreviven a desconexiones):
+Opciones de descarga:
 
 ```bash
-nohup python3 scripts/download_years.py > data/download.log 2>&1 &
-tail -f data/download.log   # seguir el progreso
+python -m src.data.collect --years 2024 2025 2026     # temporadas concretas
+python -m src.data.collect --years 2019 --source fastf1   # usando FastF1
+nohup python3 scripts/download_years.py 2011 2012 > data/download.log 2>&1 &   # en background
 ```
+
+Predicción de la próxima carrera desde la terminal:
+
+```bash
+python -m src.models.upcoming
+```
+
+## Dashboard
+
+`make dashboard` abre la app con cuatro pestañas:
+
+- **🏁 Próxima carrera**: podio previsto y probabilidades para el siguiente GP del calendario. Si la clasificación ya está publicada usa la parrilla real; si no, la estima con la media de las últimas 5 qualys de cada piloto.
+- **🔮 Predicción**: cualquier carrera disputada, predicción frente a resultado real y aciertos de podio.
+- **📊 Histórico**: métricas walk-forward fuera de muestra por temporada.
+- **🧠 Features**: importancia global del modelo y SHAP de la carrera seleccionada.
+
+El botón **Actualizar temporada actual** de la barra lateral descarga los últimos resultados sin salir de la app.
 
 ## Features principales
 
@@ -102,7 +123,7 @@ git checkout -b feature/nueva-funcionalidad
 # ... trabajas ...
 git push -u origin feature/nueva-funcionalidad
 # Abres PR en GitHub: feature/* → dev
-g# Cuando dev está estable: PR dev → main
+# Cuando dev está estable: PR dev → main
 ```
 
 ## Testeo
@@ -121,15 +142,16 @@ make lint-fix
 make clean
 ```
 
-## Estado del MVP
+## Estado
 
-- ✅ Recolección incremental con FastF1 (2010–2026)
-- ✅ Feature engineering completo
-- ✅ XGBoost multiclase entrenable
-- ✅ Validación temporal walk-forward
-- ✅ Dashboard Streamlit funcional
+- ✅ Recolección incremental con Jolpica (por defecto) o FastF1
+- ✅ Feature engineering sin fugas de datos (`shift(1)` por piloto con `DriverId`)
+- ✅ XGBoost multiclase con early stopping y reentreno con todas las temporadas
+- ✅ Validación temporal walk-forward (2023–2025)
+- ✅ Predicción de la próxima carrera
+- ✅ Dashboard Streamlit rojo/plata con SHAP
 - ✅ CI/CD con GitHub Actions
-- ✅ Tests base con pytest
+- ✅ Tests con pytest (sin red)
 
 ## Licencia
 
