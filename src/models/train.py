@@ -10,7 +10,7 @@ from xgboost import XGBClassifier
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.utils.config import config
-from src.utils.paths import get_processed_path, get_models_path
+from src.utils.paths import get_models_path, get_processed_path
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"

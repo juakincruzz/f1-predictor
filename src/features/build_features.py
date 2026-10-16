@@ -13,9 +13,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from src.data.collect import load_raw_sessions
 from src.utils.config import config
 from src.utils.paths import get_processed_path
-from src.data.collect import load_raw_sessions
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"

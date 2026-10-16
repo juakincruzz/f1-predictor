@@ -6,6 +6,7 @@ from pathlib import Path
 
 import altair as alt
 import pandas as pd
+import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -114,7 +115,13 @@ with st.sidebar:
         with st.spinner(f"Descargando {current} desde Jolpica..."):
             try:
                 stats = collect_year_jolpica(current)
-            except Exception as e:  # red caída, API cambiada...
+            # red caída, HTTP de error o respuesta con otro formato
+            except (
+                requests.RequestException,
+                ConnectionError,
+                KeyError,
+                ValueError,
+            ) as e:
                 st.error(f"No se pudo actualizar: {e}")
             else:
                 st.cache_data.clear()

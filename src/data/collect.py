@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.data.jolpica import collect_year_jolpica
 from src.utils.config import config
-from src.utils.paths import get_raw_path, ensure_dir
+from src.utils.paths import ensure_dir, get_raw_path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,7 +79,9 @@ def _download_with_retry(
             )
             time.sleep(wait)
 
-        except Exception as e:
+        # FastF1 lanza tipos de error muy variados; una sesión fallida no debe
+        # parar la descarga de la temporada
+        except Exception as e:  # noqa: BLE001
             last_exception = e
             logger.error(f"Error descargando {year} R{round_num} {session_type}: {e}")
             return None
