@@ -39,6 +39,15 @@ def build_targets(race_df: pd.DataFrame) -> pd.DataFrame:
     return race_df
 
 
+def driver_key(df: pd.DataFrame) -> pd.Series:
+    """Identificador estable del piloto: DriverId (el dorsal puede cambiar entre
+    temporadas y repetirse entre épocas), con fallback a DriverNumber."""
+    if "DriverId" in df.columns:
+        ids = df["DriverId"].replace("", pd.NA)
+        return ids.fillna(df["DriverNumber"])
+    return df["DriverNumber"]
+
+
 def _rolling_prev_mean(grouped, n: int) -> pd.Series:
     """Media móvil de las n observaciones ANTERIORES, calculada por grupo."""
     return grouped.transform(
@@ -50,7 +59,7 @@ def compute_recent_form(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Media de posiciones finales en las últimas n carreras por piloto."""
     df = df.sort_values(["Year", "RoundNumber"])
     df["recent_form_avg"] = _rolling_prev_mean(
-        df.groupby("DriverNumber")["final_position"], n
+        df.groupby(driver_key(df))["final_position"], n
     )
     return df
 
@@ -68,7 +77,7 @@ def compute_track_history(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Media de posiciones finales del piloto en ese circuito en las últimas n apariciones."""
     df = df.sort_values(["Year", "RoundNumber"])
     df["track_history_avg"] = _rolling_prev_mean(
-        df.groupby(["DriverNumber", "EventName"])["final_position"], n
+        df.groupby([driver_key(df), df["EventName"]])["final_position"], n
     )
     return df
 
@@ -102,7 +111,7 @@ def compute_championship_position(df: pd.DataFrame) -> pd.DataFrame:
 def compute_races_experience(df: pd.DataFrame) -> pd.DataFrame:
     """Número acumulado de carreras disputadas por piloto en todo el histórico."""
     df = df.sort_values(["Year", "RoundNumber"])
-    df["races_experience"] = df.groupby("DriverNumber").cumcount()
+    df["races_experience"] = df.groupby(driver_key(df)).cumcount()
     return df
 
 
@@ -195,8 +204,11 @@ def build_features_from_frames(
         "RoundNumber",
         "EventName",
         "DriverNumber",
+        "DriverId",
         "Abbreviation",
+        "FullName",
         "TeamName",
+        "TeamColor",
         "target",
     ]
     keep_cols = base_cols + feature_cols

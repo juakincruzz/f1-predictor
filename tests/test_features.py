@@ -5,8 +5,10 @@ import pandas as pd
 from src.features.build_features import (
     build_features_from_frames,
     build_targets,
+    compute_races_experience,
     compute_recent_form,
     compute_track_history,
+    driver_key,
     merge_race_and_quali,
 )
 
@@ -128,3 +130,26 @@ def test_grid_position_falls_back_to_quali():
     )
     merged = merge_race_and_quali(race_df, quali_df)
     assert merged["grid_position"].iloc[0] == 5
+
+
+def test_recent_form_follows_driver_id_across_number_change():
+    """Un piloto que cambia de dorsal mantiene su forma reciente."""
+    df = pd.DataFrame(
+        {
+            "Year": [2025, 2026],
+            "RoundNumber": [24, 1],
+            "DriverNumber": ["1", "3"],
+            "DriverId": ["max_verstappen", "max_verstappen"],
+            "final_position": [2, 5],
+        }
+    )
+    result = compute_recent_form(df, n=5)
+    assert result.loc[result["Year"] == 2026, "recent_form_avg"].iloc[0] == 2
+    exp = compute_races_experience(df)
+    assert exp.loc[exp["Year"] == 2026, "races_experience"].iloc[0] == 1
+
+
+def test_driver_key_falls_back_to_number():
+    df = pd.DataFrame({"DriverNumber": ["44", "1"], "DriverId": ["hamilton", None]})
+    assert driver_key(df).tolist() == ["hamilton", "1"]
+    assert driver_key(df[["DriverNumber"]]).tolist() == ["44", "1"]

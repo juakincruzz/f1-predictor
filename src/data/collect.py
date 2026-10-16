@@ -4,6 +4,7 @@ Incluye rate limiting automático y reintentos con backoff para respetar
 los límites de la API de FastF1 (500 calls/h).
 """
 
+import argparse
 import logging
 import sys
 import time
@@ -15,6 +16,7 @@ from fastf1.exceptions import RateLimitExceededError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from src.data.jolpica import collect_year_jolpica
 from src.utils.config import config
 from src.utils.paths import get_raw_path, ensure_dir
 
@@ -213,5 +215,34 @@ def load_raw_sessions(year: int, session_type: str = "R") -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
+def load_schedule(year: int) -> pd.DataFrame:
+    """Calendario guardado por el colector Jolpica (vacío si no existe)."""
+    path = get_raw_path(str(year)) / "schedule.parquet"
+    return pd.read_parquet(path) if path.exists() else pd.DataFrame()
+
+
+def run(years: list[int], source: str = "jolpica", force: bool = False) -> None:
+    """Descarga incremental de las temporadas indicadas con la fuente elegida."""
+    for year in years:
+        if source == "jolpica":
+            collect_year_jolpica(year, force=force)
+        else:
+            collect_year(year, force=force)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Descarga incremental de datos F1.")
+    parser.add_argument("--source", choices=["jolpica", "fastf1"], default="jolpica")
+    parser.add_argument(
+        "--years", nargs="+", type=int, help="Temporadas (defecto: rango de config)"
+    )
+    parser.add_argument("--force", action="store_true", help="Re-descarga todo")
+    args = parser.parse_args(argv)
+    years = args.years or list(
+        range(config.get("data.start_year"), config.get("data.end_year") + 1)
+    )
+    run(years, source=args.source, force=args.force)
+
+
 if __name__ == "__main__":
-    collect_range()
+    main()
