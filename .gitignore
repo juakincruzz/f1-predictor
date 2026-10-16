@@ -226,3 +226,6 @@ models/*.ubj
 models/*.pkl
 reports/*.png
 reports/*.csv
+
+# Superpowers SDD workspace
+.superpowers/
