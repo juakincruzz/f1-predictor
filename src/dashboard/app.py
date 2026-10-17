@@ -12,8 +12,13 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.dashboard import components as ui
+from src.dashboard.circuit_map import circuit_svg
+from src.dashboard.replay_component import render_replay
 from src.dashboard.theme import RED, SILVER, apply_theme, style_chart
-from src.data.jolpica import collect_year_jolpica
+from src.data import openf1
+from src.data.collect import load_schedule
+from src.data.jolpica import collect_year_jolpica, fetch_races, parse_schedule
+from src.data.replay import build_replay
 from src.features.build_features import build_features_for_year
 from src.models.explain import feature_importance, podium_shap
 from src.models.predict import predict_for_race
@@ -55,6 +60,24 @@ def upcoming(today: date, mtime: float):
 @st.cache_resource
 def trained_model(mtime: float):
     return load_model(MODEL_FILE)
+
+
+@st.cache_data(show_spinner="Preparando la repetición...")
+def replay_payload(year: int, round_num: int) -> dict:
+    session, frames = openf1.load_race(year, round_num)
+    return build_replay(session, frames)
+
+
+def race_event_date(year: int, round_num: int) -> date:
+    """Fecha del GP según el calendario (lo descarga de Jolpica si falta)."""
+    schedule = load_schedule(year)
+    if schedule.empty:
+        schedule = parse_schedule(fetch_races(year), year)
+        schedule.to_parquet(get_raw_path(str(year)) / "schedule.parquet", index=False)
+    row = schedule[schedule["RoundNumber"] == round_num]
+    if row.empty:
+        raise LookupError(f"La ronda {round_num} no está en el calendario de {year}")
+    return pd.Timestamp(row["EventDate"].iloc[0]).date()
 
 
 def available_years() -> list[int]:
@@ -136,8 +159,14 @@ with st.sidebar:
 if not years:
     st.warning("No hay datos descargados. Ejecuta `make data` y `make features`.")
 
-tab_next, tab_pred, tab_hist, tab_feat = st.tabs(
-    ["🏁 Próxima carrera", "🔮 Predicción", "📊 Histórico", "🧠 Features"]
+tab_next, tab_pred, tab_replay, tab_hist, tab_feat = st.tabs(
+    [
+        "🏁 Próxima carrera",
+        "🔮 Predicción",
+        "🗺️ Repetición",
+        "📊 Histórico",
+        "🧠 Features",
+    ]
 )
 
 # --- Próxima carrera ---------------------------------------------------------
@@ -168,6 +197,9 @@ with tab_next:
             )
         ui.section("Podio previsto")
         ui.podium_cards(up.predictions)
+        if svg := circuit_svg(race.circuit_id):
+            ui.section(f"Circuito · {race.event_name}")
+            ui.circuit_card(svg)
         ui.section("Probabilidades por piloto")
         ui.prediction_table(up.predictions)
 
@@ -201,6 +233,52 @@ with tab_pred:
             "carreras pasadas son datos que ya ha visto. Las métricas fuera de "
             "muestra están en la pestaña Histórico."
         )
+
+# --- Repetición animada (OpenF1) ---------------------------------------------
+with tab_replay:
+    if round_num is None:
+        st.info("Selecciona una temporada y un Gran Premio en la barra lateral.")
+    elif year < openf1.FIRST_YEAR:
+        st.info(
+            f"La repetición usa datos de OpenF1, disponibles desde {openf1.FIRST_YEAR}. "
+            "Elige una temporada más reciente."
+        )
+    elif openf1.is_downloaded(year, round_num):
+        ui.section(f"Repetición · {year} · {round_labels[round_num]}")
+        render_replay(replay_payload(year, round_num))
+        st.caption(
+            "Datos de OpenF1 (posiciones a 1 Hz interpoladas). Espacio para "
+            "reproducir o pausar; arrastra la barra para saltar a cualquier momento."
+        )
+    else:
+        ui.section(f"Repetición · {year} · {round_labels[round_num]}")
+        st.caption(
+            "La primera vez se descargan los datos de la carrera desde OpenF1 "
+            "(plan gratuito: 30 peticiones por minuto, 1-2 minutos). Después quedan "
+            "guardados y la repetición se abre al instante."
+        )
+        if st.button("▶ Cargar repetición", key="load_replay"):
+            bar = st.progress(0.0, text="Buscando la sesión en OpenF1...")
+
+            def report(i: int, total: int, label: str) -> None:
+                bar.progress(
+                    min(i / max(total, 1), 1.0), text=f"Descargando {label}..."
+                )
+
+            try:
+                openf1.download_race(
+                    year, round_num, race_event_date(year, round_num), report
+                )
+            except (
+                requests.RequestException,
+                ConnectionError,
+                LookupError,
+                KeyError,
+                ValueError,
+            ) as e:
+                st.error(f"No se pudo cargar la repetición: {e}")
+            else:
+                st.rerun()
 
 # --- Histórico walk-forward --------------------------------------------------
 with tab_hist:

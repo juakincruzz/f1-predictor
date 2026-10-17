@@ -29,7 +29,10 @@ def _race(rnd, results, key="Results"):
         "round": str(rnd),
         "raceName": f"GP {rnd}",
         "date": f"2026-03-0{rnd}",
-        "Circuit": {"Location": {"country": "X", "locality": "Y"}},
+        "Circuit": {
+            "circuitId": f"c{rnd}",
+            "Location": {"country": "X", "locality": "Y"},
+        },
         key: results,
     }
 
@@ -94,6 +97,7 @@ def test_parse_schedule():
     assert sched["RoundNumber"].tolist() == [1, 2]
     assert sched["EventName"].tolist() == ["GP 1", "GP 2"]
     assert sched["Year"].unique().tolist() == [2026]
+    assert sched["CircuitId"].tolist() == ["c1", "c2"]
     assert pd.api.types.is_datetime64_any_dtype(sched["EventDate"])
 
 

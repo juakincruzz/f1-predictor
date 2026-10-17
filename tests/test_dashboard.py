@@ -15,6 +15,7 @@ def test_dashboard_renders_without_exceptions():
     assert labels == [
         "🏁 Próxima carrera",
         "🔮 Predicción",
+        "🗺️ Repetición",
         "📊 Histórico",
         "🧠 Features",
     ]

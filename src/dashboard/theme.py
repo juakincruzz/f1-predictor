@@ -143,6 +143,13 @@ html, body, .stApp, .stMarkdown, button, input, select, textarea,
 .f1-bar > span {{ display: block; height: 100%; background: linear-gradient(90deg, {SILVER_DARK}, {SILVER_LIGHT}); }}
 .p1 .f1-bar > span {{ background: linear-gradient(90deg, {RED_DARK}, {RED}); }}
 
+/* Trazado del circuito */
+.f1-circuit-card {{
+  border: 1px solid {LINE}; border-radius: 6px; padding: 1rem;
+  background: radial-gradient(ellipse at 50% 0%, #202127 0%, #111215 75%);
+}}
+.f1-circuit {{ display: block; width: 100%; max-height: 380px; }}
+
 /* Pestañas */
 [role="tablist"] {{ gap: .3rem; border-bottom: 1px solid {LINE}; }}
 [data-testid="stTab"] {{ padding: .55rem 1rem; }}

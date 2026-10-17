@@ -18,6 +18,7 @@ SCHEDULE = pd.DataFrame(
         "Year": [2026] * 4,
         "RoundNumber": [1, 2, 3, 4],
         "EventName": ["GP A", "GP B", "GP C", "GP D"],
+        "CircuitId": ["a", "b", "c", "d"],
         "EventDate": pd.to_datetime(
             ["2026-03-01", "2026-03-15", "2026-04-01", "2026-04-15"]
         ),
@@ -54,6 +55,7 @@ def test_next_race_returns_first_pending_round():
     race = next_race(SCHEDULE, {1, 2}, date(2026, 3, 20))
     assert (race.round_num, race.event_name, race.total_rounds) == (3, "GP C", 4)
     assert race.event_date == date(2026, 4, 1)
+    assert race.circuit_id == "c"
 
 
 def test_next_race_skips_stale_round_without_results():

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E10600; --red-dark: #A30500; --silver: #C9CDD2; --silver-light: #EEF0F2;
+    --silver-dark: #8A8F96; --carbon: #0B0B0D; --panel: #17181C; --line: #2A2C31;
+    --text: #D9D9DE;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: transparent; color: var(--text);
+         font-family: 'Titillium Web', sans-serif; }
+  .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; }
+  .stage { position: relative; height: 620px; border: 1px solid var(--line); border-radius: 6px;
+           overflow: hidden; background: radial-gradient(ellipse at 50% 0%, #202127 0%, #0F1013 72%); }
+  canvas { display: block; width: 100%; height: 100%; }
+  .chip { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: .5rem;
+          padding: .25rem .7rem; border-radius: 3px; background: rgba(11,11,13,.85);
+          border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .12em;
+          font-size: .72rem; font-weight: 700; color: var(--silver-light); }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .circuit { position: absolute; top: 12px; right: 14px; text-transform: uppercase;
+             letter-spacing: .16em; font-size: .72rem; font-weight: 700; color: var(--silver-dark); }
+  .banner { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: .5rem .85rem;
+            background: rgba(11,11,13,.9); border-left: 4px solid var(--red); border-radius: 2px;
+            font-weight: 600; font-size: .9rem; color: var(--silver-light);
+            opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; }
+  .banner.on { opacity: 1; transform: none; }
+  .tower { height: 620px; display: flex; flex-direction: column; border: 1px solid var(--line);
+           border-top: 3px solid var(--red); border-radius: 6px; overflow: hidden;
+           background: linear-gradient(180deg, #1C1D22, #141519); }
+  .tower-head { display: flex; justify-content: space-between; align-items: baseline;
+                padding: .6rem .8rem; border-bottom: 1px solid var(--line);
+                text-transform: uppercase; letter-spacing: .14em; font-size: .7rem;
+                font-weight: 700; color: var(--silver-dark); }
+  .tower-head b { color: var(--silver-light); font-size: 1.05rem; letter-spacing: 0; margin-left: .3rem; }
+  #rows { overflow-y: auto; flex: 1; }
+  .row { display: grid; grid-template-columns: 24px 4px 40px 1fr 30px 22px; align-items: center;
+         gap: 7px; padding: .2rem .7rem; border-bottom: 1px solid rgba(42,44,49,.55);
+         font-size: .85rem; min-height: 25px; }
+  .row .p { text-align: right; font-weight: 700; color: var(--silver); }
+  .row .c { height: 15px; border-radius: 1px; }
+  .row .a { font-weight: 700; color: var(--silver-light); }
+  .row .g { text-align: right; color: var(--silver-dark); font-variant-numeric: tabular-nums; }
+  .row.lead .g { color: var(--red); font-weight: 700; }
+  .pit { background: var(--red); color: #fff; font-size: .6rem; font-weight: 900;
+         padding: 0 .25rem; border-radius: 2px; text-align: center; }
+  .tyre { width: 20px; height: 20px; border-radius: 50%; border: 3px solid; display: grid;
+          place-items: center; font-size: .58rem; font-weight: 900; color: var(--silver-light);
+          background: #0B0B0D; }
+  .controls { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px;
+              padding: .55rem .8rem; border: 1px solid var(--line); border-radius: 6px;
+              background: linear-gradient(180deg, #1C1D22, #141519); }
+  button, select { font-family: inherit; font-weight: 700; color: var(--silver-light);
+                   background: linear-gradient(180deg, #2C2E33, #1A1B1F);
+                   border: 1px solid var(--silver-dark); border-radius: 3px; cursor: pointer; }
+  button { width: 42px; height: 34px; font-size: 1rem; }
+  button:hover, select:hover { border-color: var(--red); }
+  select { height: 34px; padding: 0 .4rem; }
+  input[type=range] { flex: 1; accent-color: var(--red); min-width: 80px; }
+  .clock { font-variant-numeric: tabular-nums; color: var(--silver); min-width: 64px; text-align: right; }
+  .empty { padding: 2rem; color: var(--silver-dark); }
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; }
+    .stage { height: 360px; }
+    .tower { height: auto; max-height: 520px; }
+    .controls { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <canvas id="track"></canvas>
+    <div class="chip"><i id="status-dot"></i><span id="status-label"></span></div>
+    <div class="circuit" id="circuit"></div>
+    <div class="banner" id="banner"></div>
+  </div>
+  <div class="tower">
+    <div class="tower-head"><span>Posiciones</span><span>Vuelta<b id="lap">–</b></span></div>
+    <div id="rows"></div>
+  </div>
+  <div class="controls">
+    <button id="play" title="Reproducir / pausa (espacio)">▶</button>
+    <select id="speed" title="Velocidad">
+      <option value="1">x1</option><option value="5">x5</option>
+      <option value="10" selected>x10</option><option value="30">x30</option>
+      <option value="60">x60</option>
+    </select>
+    <input type="range" id="scrub" min="0" value="0" step="1" aria-label="Momento de la carrera">
+    <span class="clock" id="clock">0:00:00</span>
+  </div>
+</div>
+<script>
+const D = __REPLAY_DATA__;
+const T = D.meta.duration || 0;
+const STATUS = {
+  GREEN: ["Pista libre", "#8A8F96"], YELLOW: ["Bandera amarilla", "#FFD400"],
+  SC: ["Safety Car", "#FF9F1C"], VSC: ["Virtual Safety Car", "#FF9F1C"],
+  RED: ["Bandera roja", "#E10600"], CHEQUERED: ["Bandera a cuadros", "#EEF0F2"],
+};
+const TYRES = {
+  SOFT: ["S", "#E10600"], MEDIUM: ["M", "#FFD400"], HARD: ["H", "#EEF0F2"],
+  INTERMEDIATE: ["I", "#2BB24C"], WET: ["W", "#2D7FF9"],
+};
+const KIND_COLORS = { SC: "#FF9F1C", VSC: "#FF9F1C", YELLOW: "#FFD400",
+  "DOUBLE YELLOW": "#FFD400", RED: "#E10600", GREEN: "#2BB24C", CLEAR: "#2BB24C",
+  CHEQUERED: "#EEF0F2", BLUE: "#2D7FF9" };
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("track"), ctx = canvas.getContext("2d");
+const scrub = $("scrub"), playBtn = $("play"), speedSel = $("speed");
+scrub.max = T;
+$("circuit").textContent = D.meta.name || "";
+
+// Último valor de una lista de eventos [[t, v], ...] con t <= tt
+function stepAt(events, tt) {
+  let lo = 0, hi = (events || []).length - 1, ans = null;
+  while (lo <= hi) {
+    const m = (lo + hi) >> 1;
+    if (events[m][0] <= tt) { ans = events[m][1]; lo = m + 1; } else hi = m - 1;
+  }
+  return ans;
+}
+
+function carAt(d, tt) {
+  const i = Math.floor(tt), f = tt - i, j = Math.min(i + 1, T);
+  const x0 = d.x[i], y0 = d.y[i];
+  if (x0 == null || y0 == null) return null;
+  const x1 = d.x[j], y1 = d.y[j];
+  if (x1 == null || y1 == null) return [x0, y0];
+  return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f];
+}
+
+// Límites del dibujo: trazado (o todas las posiciones si no hay trazado)
+let pts = D.outline.length ? D.outline : [];
+if (!pts.length) for (const d of D.drivers) for (let i = 0; i < d.x.length; i += 10)
+  if (d.x[i] != null) pts.push([d.x[i], d.y[i]]);
+const minX = Math.min(...pts.map(p => p[0])), maxX = Math.max(...pts.map(p => p[0]));
+const minY = Math.min(...pts.map(p => p[1])), maxY = Math.max(...pts.map(p => p[1]));
+let view = { s: 1, ox: 0, oy: 0, h: 0 };
+
+function resize() {
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pad = 46, dx = (maxX - minX) || 1, dy = (maxY - minY) || 1;
+  const s = Math.min((r.width - 2 * pad) / dx, (r.height - 2 * pad) / dy);
+  view = { s, ox: (r.width - dx * s) / 2, oy: (r.height - dy * s) / 2, h: r.height };
+}
+// El eje y de OpenF1 crece hacia arriba; el del canvas, hacia abajo
+const px = (x) => view.ox + (x - minX) * view.s;
+const py = (y) => view.h - (view.oy + (y - minY) * view.s);
+
+function drawTrack(status) {
+  if (!D.outline.length) return;
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const path = new Path2D();
+  D.outline.forEach(([x, y], i) => i ? path.lineTo(px(x), py(y)) : path.moveTo(px(x), py(y)));
+  ctx.strokeStyle = "#2A2C31"; ctx.lineWidth = 16; ctx.stroke(path);
+  ctx.strokeStyle = (STATUS[status] || STATUS.GREEN)[1]; ctx.lineWidth = 5; ctx.stroke(path);
+  // Línea de salida/meta: barra blanca perpendicular a la pista (no un punto,
+  // para no confundirla con un coche)
+  const [sx, sy] = D.outline[0], [nx, ny] = D.outline[Math.min(3, D.outline.length - 1)];
+  const ang = Math.atan2(py(ny) - py(sy), px(nx) - px(sx)) + Math.PI / 2;
+  const hx = Math.cos(ang) * 11, hy = Math.sin(ang) * 11;
+  ctx.lineCap = "butt"; ctx.lineWidth = 4;
+  ctx.strokeStyle = "#EEF0F2";
+  ctx.beginPath(); ctx.moveTo(px(sx) - hx, py(sy) - hy); ctx.lineTo(px(sx) + hx, py(sy) + hy); ctx.stroke();
+}
+
+function standings(tt) {
+  return D.drivers.map((d) => {
+    const lap = stepAt(d.laps, tt);
+    const stint = lap == null ? null : d.stints.find(([a, b]) => lap >= a && lap <= b);
+    return {
+      d, pos: stepAt(d.pos, tt) ?? 99, gap: stepAt(d.gap, tt), lap,
+      tyre: stint ? stint[2] : null,
+      pit: d.pits.some(([pt, dur]) => tt >= pt && tt <= pt + dur),
+    };
+  }).sort((a, b) => a.pos - b.pos);
+}
+
+function drawCars(rows, tt) {
+  ctx.font = "700 11px 'Titillium Web', sans-serif";
+  for (const r of [...rows].reverse()) {  // el líder se dibuja el último, encima
+    const p = carAt(r.d, tt);
+    if (!p) continue;
+    const x = px(p[0]), y = py(p[1]);
+    ctx.fillStyle = r.d.color; ctx.strokeStyle = r.pos <= 3 ? "#EEF0F2" : "#0B0B0D";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r.pos === 1 ? 7.5 : 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(11,11,13,.75)";
+    const w = ctx.measureText(r.d.abbr).width + 6;
+    ctx.fillRect(x + 9, y - 8, w, 15);
+    ctx.fillStyle = "#EEF0F2"; ctx.fillText(r.d.abbr, x + 12, y + 4);
+  }
+}
+
+function gapText(r) {
+  if (r.pos === 1) return "LÍDER";
+  if (r.gap == null) return "";
+  if (typeof r.gap === "number") return "+" + r.gap.toFixed(3);
+  return String(r.gap).replace(/\s*LAPS?/i, " V");
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function drawTower(rows, tt) {
+  const lap = stepAt(D.leader_laps, tt);
+  $("lap").textContent = `${lap ?? 0}/${D.meta.total_laps || "–"}`;
+  $("rows").innerHTML = rows.filter(r => r.pos < 99).map((r) => {
+    const [letter, color] = TYRES[r.tyre] || ["?", "#8A8F96"];
+    const tyre = r.tyre ? `<span class="tyre" style="border-color:${color}">${letter}</span>` : "<span></span>";
+    return `<div class="row${r.pos === 1 ? " lead" : ""}"><span class="p">${r.pos}</span>`
+      + `<span class="c" style="background:${r.d.color}"></span>`
+      + `<span class="a" title="${esc(r.d.name)}">${esc(r.d.abbr)}</span>`
+      + `<span class="g">${esc(gapText(r))}</span>`
+      + `${r.pit ? '<span class="pit">PIT</span>' : "<span></span>"}${tyre}</div>`;
+  }).join("") || '<div class="empty">Sin datos de posiciones</div>';
+}
+
+function drawOverlay(tt) {
+  const status = stepAt(D.status, tt) || "GREEN";
+  const [label, color] = STATUS[status] || STATUS.GREEN;
+  $("status-label").textContent = label; $("status-dot").style.background = color;
+  const msg = stepAt(D.messages.map(m => [m[0], m]), tt);
+  const banner = $("banner");
+  if (msg && tt - msg[0] < 25) {
+    banner.textContent = msg[1];
+    banner.style.borderLeftColor = KIND_COLORS[msg[2]] || "#8A8F96";
+    banner.classList.add("on");
+  } else banner.classList.remove("on");
+  return status;
+}
+
+function clock(tt) {
+  const s = Math.floor(tt), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+let t = 0, playing = false, last = null, lastTower = -1;
+function render(force) {
+  const r = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  const status = drawOverlay(t);
+  drawTrack(status);
+  const rows = standings(t);
+  drawCars(rows, t);
+  if (force || Math.abs(t - lastTower) >= 0.5) { drawTower(rows, t); lastTower = t; }
+  $("clock").textContent = clock(t);
+}
+
+function frame(ts) {
+  if (playing && last != null) {
+    t = Math.min(T, t + (ts - last) / 1000 * Number(speedSel.value));
+    scrub.value = Math.floor(t);
+    if (t >= T) { playing = false; playBtn.textContent = "▶"; }
+  }
+  last = ts;
+  if (playing) render(false);
+  requestAnimationFrame(frame);
+}
+
+function toggle() {
+  if (t >= T) t = 0;
+  playing = !playing; playBtn.textContent = playing ? "❚❚" : "▶";
+}
+playBtn.addEventListener("click", toggle);
+document.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); toggle(); } });
+scrub.addEventListener("input", () => { t = Number(scrub.value); render(true); });
+window.addEventListener("resize", () => { resize(); render(true); });
+
+// Arranca en la salida (vuelta 1), no en la vuelta de formación
+const start = (D.leader_laps[0] || [0])[0];
+t = Math.max(0, start - 5); scrub.value = t;
+resize(); render(true);
+document.fonts && document.fonts.ready.then(() => render(true));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

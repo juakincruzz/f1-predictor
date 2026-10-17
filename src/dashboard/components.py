@@ -105,5 +105,10 @@ def prediction_table(preds: pd.DataFrame, with_actual: bool = False) -> None:
     )
 
 
+def circuit_card(svg: str) -> None:
+    """Tarjeta con el SVG del trazado (generado por circuit_map, sin texto externo)."""
+    _html(f'<div class="f1-circuit-card">{svg}</div>')
+
+
 def model_missing() -> None:
     st.error("No hay modelo entrenado. Ejecuta `make features` y `make train`.")

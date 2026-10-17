@@ -47,6 +47,7 @@ class UpcomingRace:
     event_name: str
     event_date: date
     total_rounds: int
+    circuit_id: str = ""
 
 
 @dataclass
@@ -77,6 +78,7 @@ def next_race(
         event_name=str(row["EventName"]),
         event_date=pd.Timestamp(row["EventDate"]).date(),
         total_rounds=len(sched),
+        circuit_id=str(row.get("CircuitId", "") or ""),
     )
 
 

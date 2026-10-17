@@ -91,10 +91,11 @@ python -m src.models.upcoming
 
 ## Dashboard
 
-`make dashboard` abre la app con cuatro pestañas:
+`make dashboard` abre la app con cinco pestañas:
 
-- **🏁 Próxima carrera**: podio previsto y probabilidades para el siguiente GP del calendario. Si la clasificación ya está publicada usa la parrilla real; si no, la estima con la media de las últimas 5 qualys de cada piloto.
+- **🏁 Próxima carrera**: podio previsto, trazado del circuito y probabilidades para el siguiente GP del calendario. Si la clasificación ya está publicada usa la parrilla real; si no, la estima con la media de las últimas 5 qualys de cada piloto.
 - **🔮 Predicción**: cualquier carrera disputada, predicción frente a resultado real y aciertos de podio.
+- **🗺️ Repetición**: repetición animada de la carrera (desde 2023) con los coches moviéndose por el circuito, torre de posiciones con gaps, neumáticos y paradas, estado de pista (amarilla, SC, VSC, roja) y mensajes de dirección de carrera. Controles de play/pausa, velocidad x1–x60 y barra de tiempo. La primera vez descarga la carrera de [OpenF1](https://openf1.org) (~1-2 min, plan gratuito) y la deja en caché en `data/openf1/`.
 - **📊 Histórico**: métricas walk-forward fuera de muestra por temporada.
 - **🧠 Features**: importancia global del modelo y SHAP de la carrera seleccionada.
 
@@ -150,9 +151,12 @@ make clean
 - ✅ Validación temporal walk-forward (2023–2025)
 - ✅ Predicción de la próxima carrera
 - ✅ Dashboard Streamlit rojo/plata con SHAP
+- ✅ Trazado del circuito y repetición animada de carreras (OpenF1)
 - ✅ CI/CD con GitHub Actions
 - ✅ Tests con pytest (sin red)
 
 ## Licencia
 
-MIT
+MIT. Los trazados de circuitos (`src/dashboard/assets/f1-circuits.geojson`) son de [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (MIT, ver `src/dashboard/assets/LICENSE-f1-circuits.md`).
+
+> **Datos en directo**: el plan gratuito de OpenF1 solo sirve sesiones terminadas. Con el plan de pago basta con exportar `OPENF1_TOKEN`; el cliente lo envía automáticamente.
