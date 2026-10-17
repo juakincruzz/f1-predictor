@@ -4,6 +4,7 @@ Incluye rate limiting automático y reintentos con backoff para respetar
 los límites de la API de FastF1 (500 calls/h).
 """
 
+import argparse
 import logging
 import sys
 import time
@@ -15,8 +16,9 @@ from fastf1.exceptions import RateLimitExceededError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from src.data.jolpica import collect_year_jolpica
 from src.utils.config import config
-from src.utils.paths import get_raw_path, ensure_dir
+from src.utils.paths import ensure_dir, get_raw_path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,7 +54,9 @@ def _download_with_retry(
     for attempt in range(max_retries + 1):
         try:
             session = fastf1.get_session(year, round_num, session_type)
-            session.load()
+            # Solo se usan los resultados: no descargar vueltas, telemetría,
+            # meteo ni mensajes (mucho más rápido y menos rate limit)
+            session.load(laps=False, telemetry=False, weather=False, messages=False)
             df = session.results
 
             if df is None or df.empty:
@@ -68,14 +72,16 @@ def _download_with_retry(
 
         except RateLimitExceededError as e:
             last_exception = e
-            wait = base_delay * (2 ** attempt)  # 60, 120, 240...
+            wait = base_delay * (2**attempt)  # 60, 120, 240...
             logger.warning(
                 f"Rate limit excedido en {year} R{round_num} {session_type}. "
                 f"Esperando {wait}s antes de reintento {attempt + 1}/{max_retries}..."
             )
             time.sleep(wait)
 
-        except Exception as e:
+        # FastF1 lanza tipos de error muy variados; una sesión fallida no debe
+        # parar la descarga de la temporada
+        except Exception as e:  # noqa: BLE001
             last_exception = e
             logger.error(f"Error descargando {year} R{round_num} {session_type}: {e}")
             return None
@@ -115,17 +121,19 @@ def collect_year(
     session_delay: int = DEFAULT_SESSION_DELAY,
 ) -> dict:
     """Descarga todas las carreras y clasificaciones de una temporada (salta testing).
-    
+
     Returns:
         dict con 'processed', 'skipped', 'failed', 'total'.
     """
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"Procesando temporada {year}...")
-    logger.info(f"=" * 60)
-    
+    logger.info("=" * 60)
+
     schedule = fastf1.get_event_schedule(year)
     # Filtrar eventos de testing y similares
-    valid_events = schedule[~schedule["EventName"].str.contains("Testing|Test", case=False, na=False)]
+    valid_events = schedule[
+        ~schedule["EventName"].str.contains("Testing|Test", case=False, na=False)
+    ]
     total_events = len(valid_events)
 
     stats = {"processed": 0, "skipped": 0, "failed": 0, "total": total_events * 2}
@@ -133,12 +141,14 @@ def collect_year(
     for idx, (_, event) in enumerate(valid_events.iterrows(), 1):
         round_num = event["RoundNumber"]
         event_name = event["EventName"]
-        
+
         logger.info(f"[{idx}/{total_events}] {event_name} — R{round_num:02d}")
 
         # Race (R)
         if not session_exists(year, round_num, "R") or force:
-            df_race = fetch_session(year, round_num, "R", event_name, delay=session_delay)
+            df_race = fetch_session(
+                year, round_num, "R", event_name, delay=session_delay
+            )
             if df_race is not None:
                 save_raw(df_race, year, round_num, "R")
                 stats["processed"] += 1
@@ -150,7 +160,9 @@ def collect_year(
 
         # Qualifying (Q)
         if not session_exists(year, round_num, "Q") or force:
-            df_quali = fetch_session(year, round_num, "Q", event_name, delay=session_delay)
+            df_quali = fetch_session(
+                year, round_num, "Q", event_name, delay=session_delay
+            )
             if df_quali is not None:
                 save_raw(df_quali, year, round_num, "Q")
                 stats["processed"] += 1
@@ -160,10 +172,12 @@ def collect_year(
             logger.info(f"  {year} R{round_num:02d} Q ya existe, saltando.")
             stats["skipped"] += 1
 
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"Temporada {year} completada.")
-    logger.info(f"  Procesados: {stats['processed']} | Saltados: {stats['skipped']} | Fallados: {stats['failed']}")
-    logger.info(f"=" * 60)
+    logger.info(
+        f"  Procesados: {stats['processed']} | Saltados: {stats['skipped']} | Fallados: {stats['failed']}"
+    )
+    logger.info("=" * 60)
     return stats
 
 
@@ -184,13 +198,13 @@ def collect_range(
         for key in grand_total:
             grand_total[key] += stats.get(key, 0)
 
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"DESCARGA COMPLETA {start}-{end}")
     logger.info(f"  Procesados: {grand_total['processed']}")
     logger.info(f"  Saltados:   {grand_total['skipped']}")
     logger.info(f"  Fallados:   {grand_total['failed']}")
     logger.info(f"  Total:      {grand_total['total']}")
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
 
 
 def load_raw_sessions(year: int, session_type: str = "R") -> pd.DataFrame:
@@ -203,5 +217,34 @@ def load_raw_sessions(year: int, session_type: str = "R") -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
+def load_schedule(year: int) -> pd.DataFrame:
+    """Calendario guardado por el colector Jolpica (vacío si no existe)."""
+    path = get_raw_path(str(year)) / "schedule.parquet"
+    return pd.read_parquet(path) if path.exists() else pd.DataFrame()
+
+
+def run(years: list[int], source: str = "jolpica", force: bool = False) -> None:
+    """Descarga incremental de las temporadas indicadas con la fuente elegida."""
+    for year in years:
+        if source == "jolpica":
+            collect_year_jolpica(year, force=force)
+        else:
+            collect_year(year, force=force)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Descarga incremental de datos F1.")
+    parser.add_argument("--source", choices=["jolpica", "fastf1"], default="jolpica")
+    parser.add_argument(
+        "--years", nargs="+", type=int, help="Temporadas (defecto: rango de config)"
+    )
+    parser.add_argument("--force", action="store_true", help="Re-descarga todo")
+    args = parser.parse_args(argv)
+    years = args.years or list(
+        range(config.get("data.start_year"), config.get("data.end_year") + 1)
+    )
+    run(years, source=args.source, force=args.force)
+
+
 if __name__ == "__main__":
-    collect_range()
+    main()

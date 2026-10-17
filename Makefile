@@ -1,9 +1,10 @@
-.PHONY: help install data features train dashboard lint test clean
+.PHONY: help install data update features train dashboard lint test clean
 
 help:
 	@echo "Comandos disponibles:"
 	@echo "  make install     - Instala dependencias"
 	@echo "  make data        - Descarga/carga datos crudos (incremental)"
+	@echo "  make update      - Actualiza solo la temporada en curso"
 	@echo "  make features    - Genera features procesadas"
 	@echo "  make train       - Entrena el modelo XGBoost"
 	@echo "  make evaluate    - Evalúa el modelo con validación temporal"
@@ -17,6 +18,9 @@ install:
 
 data:
 	python -m src.data.collect
+
+update:
+	python -m src.data.collect --years $$(date +%Y)
 
 features:
 	python -m src.features.build_features

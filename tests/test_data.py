@@ -1,11 +1,6 @@
 """Tests básicos para el módulo de datos."""
 
-from pathlib import Path
-
-import pandas as pd
-import pytest
-
-from src.data.collect import get_raw_path
+from src.data.collect import get_raw_path, load_schedule
 from src.utils.config import Config
 
 
@@ -22,3 +17,7 @@ def test_raw_path_exists():
 def test_placeholder():
     """Placeholder hasta tener datos reales para tests más robustos."""
     assert True
+
+
+def test_load_schedule_missing_returns_empty():
+    assert load_schedule(1900).empty

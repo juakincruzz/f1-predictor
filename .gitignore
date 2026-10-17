@@ -226,3 +226,9 @@ models/*.ubj
 models/*.pkl
 reports/*.png
 reports/*.csv
+
+# Superpowers SDD workspace
+.superpowers/
+
+# Caché de repeticiones OpenF1
+data/openf1/
