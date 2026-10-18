@@ -1,20 +1,63 @@
-[
-  {
-    "TestYear": 2023,
-    "Accuracy": 0.8636363636363636,
-    "F1Macro": 0.5018910913647756,
-    "LogLoss": 0.45726802945137024
-  },
-  {
-    "TestYear": 2024,
-    "Accuracy": 0.8580375782881002,
-    "F1Macro": 0.3951855125862316,
-    "LogLoss": 0.5325137376785278
-  },
-  {
-    "TestYear": 2025,
-    "Accuracy": 0.872651356993737,
-    "F1Macro": 0.48489217381904653,
-    "LogLoss": 0.4103543162345886
+{
+  "by_year": [
+    {
+      "TestYear": 2023,
+      "Races": 22,
+      "Model_PodiumHits": 1.9090909090909092,
+      "Grid_PodiumHits": 1.9090909090909092,
+      "Model_WinnerRate": 0.8636363636363636,
+      "Grid_WinnerRate": 0.6363636363636364,
+      "Model_FullPodiumRate": 0.13636363636363635,
+      "Grid_FullPodiumRate": 0.18181818181818182,
+      "Model_PerfectRate": 0.09090909090909091,
+      "Grid_PerfectRate": 0.09090909090909091,
+      "Accuracy": 0.8636363636363636,
+      "NoPodium_Accuracy": 0.85,
+      "F1Macro": 0.5018910913647756,
+      "LogLoss": 0.45726802945137024
+    },
+    {
+      "TestYear": 2024,
+      "Races": 24,
+      "Model_PodiumHits": 1.9166666666666667,
+      "Grid_PodiumHits": 2.0,
+      "Model_WinnerRate": 0.4166666666666667,
+      "Grid_WinnerRate": 0.4583333333333333,
+      "Model_FullPodiumRate": 0.20833333333333334,
+      "Grid_FullPodiumRate": 0.20833333333333334,
+      "Model_PerfectRate": 0.08333333333333333,
+      "Grid_PerfectRate": 0.08333333333333333,
+      "Accuracy": 0.8580375782881002,
+      "NoPodium_Accuracy": 0.8496868475991649,
+      "F1Macro": 0.3951855125862316,
+      "LogLoss": 0.5325137376785278
+    },
+    {
+      "TestYear": 2025,
+      "Races": 24,
+      "Model_PodiumHits": 2.2083333333333335,
+      "Grid_PodiumHits": 2.25,
+      "Model_WinnerRate": 0.5833333333333334,
+      "Grid_WinnerRate": 0.6666666666666666,
+      "Model_FullPodiumRate": 0.2916666666666667,
+      "Grid_FullPodiumRate": 0.3333333333333333,
+      "Model_PerfectRate": 0.125,
+      "Grid_PerfectRate": 0.16666666666666666,
+      "Accuracy": 0.872651356993737,
+      "NoPodium_Accuracy": 0.8496868475991649,
+      "F1Macro": 0.48489217381904653,
+      "LogLoss": 0.4103543162345886
+    }
+  ],
+  "overall": {
+    "Races": 70,
+    "Model_PodiumHits": 2.0142857142857142,
+    "Model_WinnerRate": 0.6142857142857143,
+    "Model_FullPodiumRate": 0.21428571428571427,
+    "Model_PerfectRate": 0.1,
+    "Grid_PodiumHits": 2.057142857142857,
+    "Grid_WinnerRate": 0.5857142857142857,
+    "Grid_FullPodiumRate": 0.24285714285714285,
+    "Grid_PerfectRate": 0.11428571428571428
   }
-]
+}

@@ -232,3 +232,4 @@ reports/*.csv
 
 # Caché de repeticiones OpenF1
 data/openf1/
+reports/*.parquet
