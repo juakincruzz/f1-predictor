@@ -21,7 +21,8 @@ def test_dashboard_renders_every_section_without_exceptions():
     for section in SECTIONS[1:] + SECTIONS[:1]:
         at.segmented_control(key="_nav").set_value(section).run()
         assert not at.exception
-        assert at.query_params["seccion"] == [section]
+        value = at.query_params["seccion"]  # str o [str] según la versión
+        assert (value if isinstance(value, str) else value[0]) == section
 
 
 def test_dashboard_switches_race_from_calendar_strip():
