@@ -117,7 +117,7 @@ def season_predictions(year: int, mtime: float) -> pd.DataFrame:
     feats = season_features(year)
     if feats.empty:
         return pd.DataFrame()
-    preds = predict(feats, model_path=MODEL_FILE)
+    preds = predict(feats, model=trained_model(mtime))
     preds["PodiumProbability"] = preds[["Prob_P1", "Prob_P2", "Prob_P3"]].sum(axis=1)
     return preds
 

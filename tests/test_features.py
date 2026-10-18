@@ -6,8 +6,10 @@ from src.features.build_features import (
     add_race_round,
     build_features_from_frames,
     build_targets,
+    compute_championship_position,
     compute_races_experience,
     compute_recent_form,
+    compute_teammate_gap,
     compute_track_history,
     driver_key,
     merge_race_and_quali,
@@ -168,3 +170,136 @@ def test_race_round_uses_season_length_when_known():
     )
     result = add_race_round(df)["race_round"].tolist()
     assert result == [1.0, 17 / 23, 18 / 23, 18 / 23]
+
+
+def _team_frame(order=None):
+    """Dos compañeros (A, B) en tres carreras; order permite barajar filas."""
+    df = pd.DataFrame(
+        {
+            "Year": [2024] * 6,
+            "RoundNumber": [1, 1, 2, 2, 3, 3],
+            "DriverNumber": ["1", "2"] * 3,
+            "DriverId": ["a", "b"] * 3,
+            "TeamName": ["T"] * 6,
+            "final_position": [1, 5, 3, 2, 2, 6],
+        }
+    )
+    return df.iloc[order] if order is not None else df
+
+
+def _gap(df, driver, rnd):
+    row = df[(df["DriverId"] == driver) & (df["RoundNumber"] == rnd)]
+    return row["teammate_gap"].iloc[0]
+
+
+def test_teammate_gap_uses_previous_race_of_both_drivers():
+    """Gap = mi resultado anterior - el resultado anterior de mi compañero."""
+    result = compute_teammate_gap(_team_frame())
+    assert pd.isna(_gap(result, "a", 1))
+    assert _gap(result, "a", 2) == 1 - 5
+    assert _gap(result, "b", 2) == 5 - 1
+    assert _gap(result, "a", 3) == 3 - 2
+    assert _gap(result, "b", 3) == 2 - 3
+
+
+def test_teammate_gap_never_sees_current_or_future_results():
+    """Cambiar el resultado de una carrera no puede mover su propio gap ni los
+    anteriores, y el orden de las filas dentro de la carrera no importa."""
+    base = compute_teammate_gap(_team_frame())
+    changed = _team_frame()
+    changed.loc[changed["RoundNumber"] == 3, "final_position"] = [20, 1]
+    changed = compute_teammate_gap(changed)
+    shuffled = compute_teammate_gap(_team_frame(order=[1, 0, 3, 2, 5, 4]))
+    for driver in ("a", "b"):
+        for rnd in (2, 3):
+            assert _gap(changed, driver, rnd) == _gap(base, driver, rnd)
+            assert _gap(shuffled, driver, rnd) == _gap(base, driver, rnd)
+
+
+def test_championship_uses_real_points_and_follows_driver_id():
+    """Usa la columna Points (vuelta rápida, etc.) y no se rompe si el piloto
+    cambia de dorsal a mitad de temporada."""
+    df = pd.DataFrame(
+        {
+            "Year": [2024] * 6,
+            "RoundNumber": [1, 1, 2, 2, 3, 3],
+            "DriverNumber": ["1", "2", "1", "2", "33", "2"],
+            "DriverId": ["a", "b", "a", "b", "a", "b"],
+            "final_position": [1, 2, 2, 1, 1, 2],
+            # a gana R1 con vuelta rápida (26); con la tabla fija empatarían a 43
+            "Points": [26, 18, 18, 25, 25, 18],
+        }
+    )
+    result = compute_championship_position(df)
+    r3 = result[result["RoundNumber"] == 3].set_index("DriverId")
+    # antes de R3: a = 44, b = 43 (a corre R3 con otro dorsal)
+    assert r3.loc["a", "championship_position"] == 1
+    assert r3.loc["b", "championship_position"] == 2
+
+
+def test_track_history_follows_circuit_not_event_name():
+    """Un GP que cambia de nombre sigue siendo el mismo circuito, y un nombre
+    que cambia de circuito no hereda el historial del anterior."""
+    df = pd.DataFrame(
+        {
+            "Year": [2024, 2025, 2026, 2026],
+            "RoundNumber": [1, 1, 1, 2],
+            "DriverNumber": ["1"] * 4,
+            "EventName": [
+                "Malaysian Grand Prix",
+                "Bahrain Grand Prix in Malaysia",
+                "Spanish Grand Prix",
+                "Barcelona Grand Prix",
+            ],
+            "CircuitId": ["sepang", "sepang", "madring", "catalunya"],
+            "final_position": [4, 6, 1, 1],
+        }
+    )
+    result = compute_track_history(df, n=5).set_index(["Year", "RoundNumber"])
+    assert result.loc[(2025, 1), "track_history_avg"] == 4
+    assert pd.isna(result.loc[(2026, 1), "track_history_avg"])
+
+
+def _fake_project(monkeypatch, tmp_path):
+    """Rutas de datos en tmp_path y features.parquet ya construido con 2024."""
+    import os
+
+    from src.features import build_features as bf
+
+    raw = tmp_path / "raw"
+    (raw / "2024").mkdir(parents=True)
+    raw_file = raw / "2024" / "R01_R.parquet"
+    pd.DataFrame({"x": [1]}).to_parquet(raw_file)
+    processed = tmp_path / "features.parquet"
+    pd.DataFrame({"Year": [2023, 2024], "RoundNumber": [1, 1]}).to_parquet(processed)
+    os.utime(raw_file, (1_000, 1_000))  # el crudo es anterior a las features
+
+    monkeypatch.setattr(bf, "get_raw_path", lambda sub: raw / sub)
+    monkeypatch.setattr(bf, "get_processed_path", lambda name: processed)
+    monkeypatch.setattr(bf.config, "get", lambda key, default=None: 2024)
+    return bf, raw_file
+
+
+def test_features_for_year_reuse_fresh_processed_file(monkeypatch, tmp_path):
+    bf, _ = _fake_project(monkeypatch, tmp_path)
+
+    def no_rebuild(*_):
+        raise AssertionError("no debía recalcular")
+
+    monkeypatch.setattr(bf, "load_raw_range", no_rebuild)
+    result = bf.build_features_for_year(2024)
+    assert result["Year"].tolist() == [2024]
+
+
+def test_features_for_year_rebuild_when_raw_is_newer(monkeypatch, tmp_path):
+    import os
+    import time
+
+    bf, raw_file = _fake_project(monkeypatch, tmp_path)
+    os.utime(raw_file, (time.time() + 60, time.time() + 60))  # crudo nuevo
+    calls = []
+    monkeypatch.setattr(
+        bf, "load_raw_range", lambda *a: calls.append(a) or pd.DataFrame()
+    )
+    assert bf.build_features_for_year(2024).empty
+    assert calls  # ha vuelto a leer los crudos

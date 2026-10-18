@@ -1,5 +1,6 @@
 """Entrenamiento del modelo XGBoost multiclase con split temporal."""
 
+import json
 import logging
 import sys
 from pathlib import Path
@@ -18,6 +19,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 FEATURE_COLUMNS = config.get("features.columns", [])
+# Atributo del booster (se guarda en el JSON del modelo) con las medianas de
+# entrenamiento que rellenan los NaN al predecir
+MEDIANS_ATTR = "feature_medians"
 
 
 def _feature_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -47,6 +51,17 @@ def prepare_xy(df: pd.DataFrame, medians: pd.Series | None = None):
         medians = X.median(numeric_only=True)
     X = X.fillna(medians)
     return X, y
+
+
+def _store_medians(model: XGBClassifier, fit_df: pd.DataFrame) -> None:
+    medians = _feature_frame(fit_df).median(numeric_only=True)
+    model.get_booster().set_attr(**{MEDIANS_ATTR: medians.to_json()})
+
+
+def feature_medians(model: XGBClassifier) -> pd.Series | None:
+    """Medianas de entrenamiento guardadas en el modelo (None en modelos antiguos)."""
+    raw = model.get_booster().attr(MEDIANS_ATTR)
+    return pd.Series(json.loads(raw), dtype=float) if raw else None
 
 
 def _new_model(**overrides) -> XGBClassifier:
@@ -143,6 +158,9 @@ def train_model(
         logger.info(
             f"Reentrenado con todas las temporadas ({len(df)} filas, {n_trees} árboles)."
         )
+        _store_medians(model, df)
+    else:
+        _store_medians(model, train_df)
     return model, X_train, X_test, y_train, y_test
 
 

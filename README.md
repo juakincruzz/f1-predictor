@@ -10,7 +10,7 @@ Entrenar un clasificador de gradient boosting para predecir quién acabará en e
 
 - **Datos**: [Jolpica](https://github.com/jolpica/jolpica-f1) (sucesora de Ergast, por defecto) y [FastF1](https://docs.fastf1.dev/) como alternativa (2010–hoy)
 - **Modelo**: XGBoost (`multi:softprob`) con SHAP nativo para explicar cada carrera
-- **Dashboard**: Streamlit + Altair, estética F1 clásica (rojo Fórmula y plata)
+- **Dashboard**: Streamlit + Altair, estética de muro de boxes con colores de sector F1
 - **Pipeline**: Makefile + scripts Python
 - **CI/CD**: GitHub Actions (ruff, black, pytest)
 
@@ -106,14 +106,30 @@ El botón **Actualizar datos** descarga los últimos resultados de la temporada 
 
 ## Features principales
 
-- `grid_position`: Posición de salida
-- `recent_form_avg`: Media últimas 5 carreras por piloto
-- `team_pace_avg`: Ritmo medio de la escudería reciente
-- `track_history_avg`: Historial del piloto en el circuito
-- `championship_position`: Posición acumulada en el mundial
-- `races_experience`: Carreras acumuladas en F1
-- `teammate_gap`: Diferencia con el compañero de equipo
-- `race_round`: Número de carrera en la temporada (normalizado)
+Todas las features históricas solo usan carreras **anteriores** a la que se predice (`shift(1)` dentro de cada grupo) y siguen al piloto por `DriverId`, no por dorsal.
+
+- `grid_position`: posición de salida (la de la parrilla real, con penalizaciones; si falta, la de la qualy)
+- `recent_form_avg`: media de las posiciones finales del piloto en sus últimas 5 carreras
+- `team_pace_avg`: media de las posiciones finales de la escudería en las últimas 5 carreras
+- `track_history_avg`: media del piloto en ese circuito en sus últimas 5 visitas. Se agrupa por `CircuitId`, no por el nombre del GP, que cambia con los patrocinadores y a veces de circuito
+- `championship_position`: posición en el mundial antes de la carrera, con los puntos reales (incluye la vuelta rápida)
+- `races_experience`: carreras disputadas en toda su trayectoria
+- `teammate_gap`: su resultado en la carrera anterior menos el de su compañero en la suya
+- `race_round`: ronda de la temporada normalizada con la longitud real del calendario
+
+Los NaN (un debutante sin historial, por ejemplo) se rellenan con las medianas del entrenamiento, que van guardadas dentro de `models/xgb_model.json`.
+
+## Resultados
+
+Validación walk-forward: cada temporada se predice con un modelo entrenado solo con las anteriores.
+
+| Temporada | Accuracy | F1 macro | Log loss |
+|---|---|---|---|
+| 2023 | 0.864 | 0.502 | 0.457 |
+| 2024 | 0.858 | 0.395 | 0.533 |
+| 2025 | 0.873 | 0.485 | 0.410 |
+
+La accuracy es alta en parte porque el 86 % de las filas son «sin podio»; el F1 macro y el log loss reflejan mejor cuánto acierta con los podios. El detalle está en `reports/` (`make evaluate`).
 
 ## Git Workflow
 
@@ -149,11 +165,11 @@ make clean
 ## Estado
 
 - ✅ Recolección incremental con Jolpica (por defecto) o FastF1
-- ✅ Feature engineering sin fugas de datos (`shift(1)` por piloto con `DriverId`)
+- ✅ Feature engineering sin fugas de datos (`shift(1)` por piloto con `DriverId`, circuito por `CircuitId`, medianas de entrenamiento guardadas en el modelo)
 - ✅ XGBoost multiclase con early stopping y reentreno con todas las temporadas
 - ✅ Validación temporal walk-forward (2023–2025)
 - ✅ Predicción de la próxima carrera
-- ✅ Dashboard Streamlit rojo/plata con SHAP
+- ✅ Dashboard Streamlit «muro de boxes»: calendario navegable, cuenta atrás, torre de probabilidades, balance de temporada y SHAP
 - ✅ Trazado del circuito y repetición animada de carreras (OpenF1)
 - ✅ CI/CD con GitHub Actions
 - ✅ Tests con pytest (sin red)

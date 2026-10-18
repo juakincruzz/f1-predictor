@@ -8,7 +8,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from src.models.train import load_model, prepare_xy
+from xgboost import XGBClassifier
+
+from src.models.train import feature_medians, load_model, prepare_xy
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -18,10 +20,23 @@ logger = logging.getLogger(__name__)
 CLASS_LABELS = {0: "No Podium", 1: "P1", 2: "P2", 3: "P3"}
 
 
-def predict(df: pd.DataFrame, model_path: str = "xgb_model.json") -> pd.DataFrame:
-    """Genera predicciones de probabilidad y clase para un DataFrame de entrada."""
-    model = load_model(model_path)
-    X, _ = prepare_xy(df)
+def predict(
+    df: pd.DataFrame,
+    model_path: str = "xgb_model.json",
+    model: XGBClassifier | None = None,
+) -> pd.DataFrame:
+    """Genera predicciones de probabilidad y clase para un DataFrame de entrada.
+
+    Pasa `model` para reutilizar uno ya cargado. Los NaN se rellenan con las
+    medianas del entrenamiento guardadas en el modelo; un modelo antiguo sin
+    ellas usa las del propio df.
+    """
+    if model is None:
+        model = load_model(model_path)
+    medians = feature_medians(model)
+    if medians is None:
+        logger.warning("El modelo no trae medianas de entrenamiento: reentrénalo.")
+    X, _ = prepare_xy(df, medians=medians)
 
     probs = model.predict_proba(X)
     preds = model.predict(X)
@@ -35,14 +50,18 @@ def predict(df: pd.DataFrame, model_path: str = "xgb_model.json") -> pd.DataFram
 
 
 def predict_for_race(
-    df: pd.DataFrame, year: int, round_num: int, model_path: str = "xgb_model.json"
+    df: pd.DataFrame,
+    year: int,
+    round_num: int,
+    model_path: str = "xgb_model.json",
+    model: XGBClassifier | None = None,
 ) -> pd.DataFrame:
     """Filtra una carrera específica y devuelve predicciones ordenadas por probabilidad de podium."""
     race = df[(df["Year"] == year) & (df["RoundNumber"] == round_num)].copy()
     if race.empty:
         logger.warning(f"No se encontraron datos para {year} R{round_num}")
         return pd.DataFrame()
-    predicted = predict(race, model_path=model_path)
+    predicted = predict(race, model_path=model_path, model=model)
     # Ordenar por probabilidad de estar en el podio (P1+P2+P3)
     podium_prob = predicted[["Prob_P1", "Prob_P2", "Prob_P3"]].sum(axis=1)
     predicted["PodiumProbability"] = podium_prob

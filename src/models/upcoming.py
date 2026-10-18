@@ -134,6 +134,7 @@ def build_upcoming_entries(
     entries["Year"] = race.year
     entries["RoundNumber"] = race.round_num
     entries["EventName"] = race.event_name
+    entries["CircuitId"] = race.circuit_id
     entries["TotalRounds"] = race.total_rounds
     entries["SessionType"] = "R"
     return entries, source

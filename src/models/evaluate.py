@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, f1_score, log_loss
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from src.models.train import prepare_xy, train_model
+from src.models.train import feature_medians, prepare_xy, train_model
 from src.utils.config import config
 from src.utils.paths import get_reports_path
 
@@ -37,7 +37,8 @@ def walk_forward_evaluation(df: pd.DataFrame) -> pd.DataFrame:
             continue
 
         model, _, _, _, _ = train_model(train_df, test_size=0.0)
-        X_test, y_test = prepare_xy(test_df)
+        # NaN del año de test rellenados con medianas de los años de train
+        X_test, y_test = prepare_xy(test_df, medians=feature_medians(model))
         preds = model.predict(X_test)
         probs = model.predict_proba(X_test)
 
