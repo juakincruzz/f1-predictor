@@ -91,15 +91,18 @@ python -m src.models.upcoming
 
 ## Dashboard
 
-`make dashboard` abre la app con cinco pestañas:
+`make dashboard` abre la app con estética de muro de boxes y tres secciones arriba (la sección, la temporada y la ronda quedan en la URL, así que puedes recargar o compartir sin perder dónde estabas):
 
-- **🏁 Próxima carrera**: podio previsto, trazado del circuito y probabilidades para el siguiente GP del calendario. Si la clasificación ya está publicada usa la parrilla real; si no, la estima con la media de las últimas 5 qualys de cada piloto.
-- **🔮 Predicción**: cualquier carrera disputada, predicción frente a resultado real y aciertos de podio.
-- **🗺️ Repetición**: repetición animada de la carrera (desde 2023) con los coches moviéndose por el circuito, torre de posiciones con gaps, neumáticos y paradas, estado de pista (amarilla, SC, VSC, roja) y mensajes de dirección de carrera. Controles de play/pausa, velocidad x1–x60 y barra de tiempo. La primera vez descarga la carrera de [OpenF1](https://openf1.org) (~1-2 min, plan gratuito) y la deja en caché en `data/openf1/`.
-- **📊 Histórico**: métricas walk-forward fuera de muestra por temporada.
-- **🧠 Features**: importancia global del modelo y SHAP de la carrera seleccionada.
+- **Carrera**: eliges temporada y Gran Premio en una tira de calendario. Cada ronda disputada se colorea según cuántos pilotos del podio previsto acabaron en el podio (morado 3/3, verde 2/3, amarillo 1/3, rojo 0/3), y la próxima va marcada con ▸. Una línea «Viendo» indica siempre qué carrera tienes abierta. Debajo hay tres pestañas:
+  - **Predicción**: en la próxima carrera, cabecera con semáforo de salida y cuenta atrás, podio previsto, trazado del circuito y torre de probabilidades. Si la clasificación ya está publicada usa la parrilla real; si no, la estima con la media de las últimas 5 qualys de cada piloto. En una carrera disputada, predicción frente a resultado real, aciertos de podio y una columna «Real» en la torre.
+  - **Repetición**: repetición animada de la carrera (desde 2023) con los coches moviéndose por el circuito, torre de posiciones con gaps, neumáticos y paradas, estado de pista (amarilla, SC, VSC, roja) y mensajes de dirección de carrera. Controles de play/pausa, velocidad x1–x60 y barra de tiempo. La primera vez descarga la carrera de [OpenF1](https://openf1.org) (~1-2 min, plan gratuito) y la deja en caché en `data/openf1/`.
+  - **Por qué**: SHAP de la carrera, es decir, qué variables movieron la probabilidad de podio.
+- **Temporada**: balance del modelo ronda a ronda (aciertos de podio, ganadores acertados, podios perfectos) y acceso directo a cualquier carrera.
+- **Modelo**: métricas walk-forward fuera de muestra por temporada e importancia global de las variables.
 
-El botón **Actualizar temporada actual** de la barra lateral descarga los últimos resultados sin salir de la app.
+Los colores de sector significan lo mismo en todo el dashboard: morado = lo mejor (favorito, acierto exacto), verde = en el podio, amarillo = aviso o sorpresa, rojo = fallo. Las animaciones se desactivan si el sistema tiene activado «reducir movimiento».
+
+El botón **Actualizar datos** descarga los últimos resultados de la temporada actual sin salir de la app.
 
 ## Features principales
 

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,600;0,700;1,900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --red:#E10600; --purple:#B36BFF; --green:#36E07A; --yellow:#F5D90A;
+          --panel:#0D0F12; --hi:#13161A; --line:#1E2328; --text:#D5DADF; --muted:#7D868F;
+          --white:#F2F4F6; --mono:'JetBrains Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: transparent; color: var(--text); font-family: 'Titillium Web', sans-serif; }
+  .hero { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between;
+          gap: 18px; flex-wrap: wrap; padding: 16px 20px; border: 1px solid var(--line); border-radius: 4px;
+          background: linear-gradient(105deg, var(--hi) 0 58%, rgba(225,6,0,.16) 58% 60%, var(--panel) 60%); }
+  .hero::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+          background: repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px); }
+  .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  h1 { margin: 2px 0 8px; font-size: 30px; line-height: 1; font-weight: 900; font-style: italic;
+       text-transform: uppercase; color: var(--white); }
+  .tag { display: inline-block; padding: 1px 8px; border: 1px solid var(--c); color: var(--c); border-radius: 2px;
+         font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .lights { display: flex; gap: 8px; padding: 7px 10px; background: #050607; border: 1px solid var(--line); border-radius: 4px; }
+  .lights i { width: 18px; height: 18px; border-radius: 50%; background: #22262B; transition: background .08s, box-shadow .08s; }
+  .lights i.on { background: var(--red); box-shadow: 0 0 12px var(--red), 0 0 2px #fff inset; }
+  .clock { display: flex; gap: 10px; font-family: var(--mono); color: var(--white); opacity: 0; transform: translateY(4px);
+           transition: opacity .4s, transform .4s; }
+  .clock.show { opacity: 1; transform: none; }
+  .clock div { text-align: center; }
+  .clock b { display: block; font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock span { font-size: 10px; color: var(--muted); letter-spacing: .12em; }
+  .clock .note { font-size: 13px; color: var(--muted); align-self: center; }
+  @media (max-width: 560px) { .right { align-items: flex-start; } h1 { font-size: 24px; } }
+  @media (prefers-reduced-motion: reduce) { .clock { transition: none; } }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div>
+    <div class="meta" id="meta"></div>
+    <h1 id="name"></h1>
+    <span class="tag" id="grid"></span>
+  </div>
+  <div class="right">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="clock" id="clock" aria-live="off"></div>
+  </div>
+</div>
+<script>
+  const D = __HERO_DATA__;
+  const $ = (id) => document.getElementById(id);
+  $("meta").textContent = D.meta;
+  $("name").textContent = D.name;
+  const grid = $("grid");
+  grid.textContent = D.grid_label;
+  grid.style.setProperty("--c", D.grid_real ? "var(--green)" : "var(--yellow)");
+
+  const clock = $("clock");
+  const start = D.start ? new Date(D.start) : null;
+  const pad = (n) => String(n).padStart(2, "0");
+  function cell(value, unit) {
+    const d = document.createElement("div");
+    const b = document.createElement("b");
+    const s = document.createElement("span");
+    b.textContent = value; s.textContent = unit;
+    d.append(b, s);
+    return d;
+  }
+  function tick() {
+    clock.replaceChildren();
+    if (!start) {
+      const n = document.createElement("div");
+      n.className = "note"; n.textContent = D.date_label;
+      clock.append(n);
+      return;
+    }
+    let ms = start - Date.now();
+    if (ms <= 0) {
+      const n = document.createElement("div");
+      n.className = "note"; n.textContent = "Carrera en curso o pendiente de resultados";
+      clock.append(n);
+      return;
+    }
+    const s = Math.floor(ms / 1000);
+    clock.append(cell(Math.floor(s / 86400), "DÍAS"), cell(pad(Math.floor(s / 3600) % 24), "HORAS"),
+                 cell(pad(Math.floor(s / 60) % 60), "MIN"), cell(pad(s % 60), "SEG"));
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // Semáforo de salida: se encienden de uno en uno y se apagan a la vez
+  const lights = document.querySelectorAll(".lights i");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) {
+    clock.classList.add("show");
+  } else {
+    lights.forEach((l, i) => setTimeout(() => l.classList.add("on"), 250 + i * 320));
+    setTimeout(() => {
+      lights.forEach((l) => l.classList.remove("on"));
+      clock.classList.add("show");
+    }, 250 + 5 * 320 + 450);
+  }
+</script>
+</body>
+</html>

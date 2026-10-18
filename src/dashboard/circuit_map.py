@@ -46,6 +46,53 @@ CIRCUIT_IDS = {
 }
 
 
+# circuitId de Jolpica -> código corto para la tira de calendario
+CIRCUIT_CODES = {
+    "albert_park": "AUS",
+    "americas": "USA",
+    "bahrain": "BHR",
+    "baku": "AZE",
+    "buddh": "IND",
+    "catalunya": "ESP",
+    "hockenheimring": "GER",
+    "hungaroring": "HUN",
+    "imola": "EMI",
+    "interlagos": "BRA",
+    "istanbul": "TUR",
+    "jeddah": "KSA",
+    "losail": "QAT",
+    "madring": "MAD",
+    "marina_bay": "SGP",
+    "miami": "MIA",
+    "monaco": "MON",
+    "monza": "ITA",
+    "mugello": "TUS",
+    "nurburgring": "EIF",
+    "portimao": "POR",
+    "red_bull_ring": "AUT",
+    "ricard": "FRA",
+    "rodriguez": "MEX",
+    "sepang": "MAS",
+    "shanghai": "CHN",
+    "silverstone": "GBR",
+    "sochi": "RUS",
+    "spa": "BEL",
+    "suzuka": "JPN",
+    "valencia": "VAL",
+    "vegas": "LVG",
+    "villeneuve": "CAN",
+    "yas_marina": "ABU",
+    "yeongam": "KOR",
+    "zandvoort": "NED",
+}
+
+
+def circuit_code(circuit_id: str, fallback: str = "") -> str:
+    """Código de 3 letras del circuito; si no se conoce, las 3 primeras del fallback."""
+    code = CIRCUIT_CODES.get(circuit_id or "")
+    return code or (fallback or "???")[:3].upper()
+
+
 @lru_cache(maxsize=1)
 def load_geojson() -> dict:
     return json.loads(GEOJSON_PATH.read_text())
@@ -60,7 +107,7 @@ def _coordinates(circuit_id: str) -> list | None:
 
 
 def circuit_svg(circuit_id: str) -> str | None:
-    """SVG del trazado (plata sobre carbono, línea de meta en rojo) o None."""
+    """SVG del trazado o None; la línea roja se dibuja animada desde la meta."""
     coords = _coordinates(circuit_id) if circuit_id else None
     if not coords:
         return None
@@ -80,10 +127,11 @@ def circuit_svg(circuit_id: str) -> str | None:
     return (
         f'<svg class="f1-circuit" viewBox="0 0 {VIEW_W} {VIEW_H}" '
         'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Trazado del circuito">'
-        f'<path d="{d}" {common} stroke="#2A2C31" stroke-width="26"/>'
-        f'<path d="{d}" {common} stroke="#C9CDD2" stroke-width="10"/>'
-        f'<path d="{d}" {common} stroke="#E10600" stroke-width="2.5"/>'
+        f'<path d="{d}" {common} stroke="#1E2328" stroke-width="26"/>'
+        f'<path d="{d}" {common} stroke="#59626B" stroke-width="9"/>'
+        f'<path class="trace" pathLength="1" d="{d}" {common} stroke="#E10600" '
+        'stroke-width="4"/>'
         f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="13" fill="#E10600" '
-        'stroke="#EEF0F2" stroke-width="4"/>'
+        'stroke="#F2F4F6" stroke-width="4"/>'
         "</svg>"
     )

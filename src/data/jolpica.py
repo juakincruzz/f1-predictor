@@ -124,13 +124,14 @@ def fetch_races(year: int, endpoint: str = "") -> list[dict]:
 
 
 def parse_schedule(races: list[dict], year: int) -> pd.DataFrame:
-    """Calendario de la temporada: ronda, nombre del GP, fecha y lugar."""
+    """Calendario de la temporada: ronda, nombre del GP, fecha, hora (UTC) y lugar."""
     rows = [
         {
             "Year": year,
             "RoundNumber": int(race["round"]),
             "EventName": race["raceName"],
             "EventDate": race["date"],
+            "EventTime": race.get("time", ""),
             "CircuitId": race["Circuit"].get("circuitId", ""),
             "Country": race["Circuit"]["Location"].get("country", ""),
             "Locality": race["Circuit"]["Location"].get("locality", ""),
@@ -144,6 +145,7 @@ def parse_schedule(races: list[dict], year: int) -> pd.DataFrame:
             "RoundNumber",
             "EventName",
             "EventDate",
+            "EventTime",
             "CircuitId",
             "Country",
             "Locality",

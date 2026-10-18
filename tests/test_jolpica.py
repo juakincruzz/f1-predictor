@@ -99,6 +99,13 @@ def test_parse_schedule():
     assert sched["Year"].unique().tolist() == [2026]
     assert sched["CircuitId"].tolist() == ["c1", "c2"]
     assert pd.api.types.is_datetime64_any_dtype(sched["EventDate"])
+    # sin hora en la respuesta: cadena vacía
+    assert sched["EventTime"].tolist() == ["", ""]
+
+
+def test_parse_schedule_keeps_start_time():
+    race = {**_race(1, []), "time": "05:00:00Z"}
+    assert jolpica.parse_schedule([race], 2026)["EventTime"].tolist() == ["05:00:00Z"]
 
 
 def test_collect_year_jolpica_writes_and_is_incremental(monkeypatch, tmp_path):

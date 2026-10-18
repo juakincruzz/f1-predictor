@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-import streamlit.components.v1 as components
+import streamlit as st
 
 TEMPLATE = Path(__file__).parent / "assets" / "replay.html"
 PLACEHOLDER = "__REPLAY_DATA__"
@@ -16,4 +16,4 @@ def replay_html(payload: dict) -> str:
 
 
 def render_replay(payload: dict, height: int = 700) -> None:
-    components.html(replay_html(payload), height=height, scrolling=True)
+    st.iframe(replay_html(payload), height=height)
